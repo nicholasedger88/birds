@@ -18,21 +18,19 @@
         <form action="{{ url_for('create_sighting') }}" method="post">
           <label>
             Bird name
-            <input
-              type="text"
-              name="bird_name"
-              list="bird-suggestions"
-              placeholder="Northern Cardinal"
-              required
-            />
-            <datalist id="bird-suggestions">
-              <option value="Northern Cardinal"></option>
-              <option value="American Robin"></option>
-              <option value="Blue Jay"></option>
-              <option value="Barn Swallow"></option>
-              <option value="Great Egret"></option>
-            </datalist>
-            <span class="helper">Type any species; suggestions are optional.</span>
+            <div class="autocomplete">
+              <input
+                type="text"
+                name="bird_name"
+                id="bird-input"
+                placeholder="European Robin"
+                autocomplete="off"
+                required
+              />
+              <input type="hidden" name="bird_id" id="bird-id" />
+              <div class="autocomplete-list" id="bird-results" hidden></div>
+            </div>
+            <span class="helper">Type any species; pick from suggestions if available.</span>
           </label>
           <label>
             Location
@@ -45,7 +43,12 @@
                 required
               />
               <button type="button" id="geo-button">Use my location</button>
+              <button type="button" id="geo-clear">Clear</button>
             </div>
+          </label>
+          <label>
+            Location label (optional)
+            <input type="text" name="location_label" placeholder="Sefton Park" />
           </label>
           <input type="hidden" name="latitude" id="latitude-field" />
           <input type="hidden" name="longitude" id="longitude-field" />
@@ -66,9 +69,13 @@
               <li>
                 <div class="sighting-meta">
                   <div>
-                    <span class="bird">{{ sighting['bird_name'] }}</span>
-                    {% if sighting['latin_name'] %}
-                      <span class="latin">{{ sighting['latin_name'] }}</span>
+                    {% if sighting['bird_id'] %}
+                      <span class="bird">{{ sighting['common_name_uk'] }}</span>
+                      {% if sighting['scientific_name'] %}
+                        <span class="latin">{{ sighting['scientific_name'] }}</span>
+                      {% endif %}
+                    {% else %}
+                      <span class="bird">{{ sighting['bird_text'] or sighting['bird_name'] }}</span>
                     {% endif %}
                   </div>
                   <span class="location">{{ sighting['location'] }}</span>
@@ -85,7 +92,29 @@
                     {% if sighting['notes'] %}
                       <p class="notes">{{ sighting['notes'] }}</p>
                     {% endif %}
+                    {% if sighting['latitude'] and sighting['longitude'] %}
+                      <p class="map">
+                        <a
+                          href="https://www.google.com/maps?q={{ sighting['latitude'] }},{{ sighting['longitude'] }}"
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          View on Google Maps
+                        </a>
+                        {% if sighting['location_label'] %}
+                          <span class="label">{{ sighting['location_label'] }}</span>
+                        {% endif %}
+                      </p>
+                    {% endif %}
                   </div>
+                  {% if sighting['bird_id'] and sighting['image_url'] %}
+                    <img
+                      class="bird-image"
+                      src="{{ sighting['image_url'] }}"
+                      alt="{{ sighting['common_name_uk'] }}"
+                      loading="lazy"
+                    />
+                  {% endif %}
                 </div>
               </li>
             {% endfor %}
@@ -96,7 +125,98 @@
       </section>
     </main>
     <script>
+      const birdInput = document.getElementById("bird-input");
+      const birdIdInput = document.getElementById("bird-id");
+      const birdResults = document.getElementById("bird-results");
+      let activeIndex = -1;
+
+      const clearResults = () => {
+        birdResults.innerHTML = "";
+        birdResults.hidden = true;
+        activeIndex = -1;
+      };
+
+      const renderResults = (items) => {
+        birdResults.innerHTML = "";
+        if (!items.length) {
+          clearResults();
+          return;
+        }
+        items.forEach((item, index) => {
+          const option = document.createElement("button");
+          option.type = "button";
+          option.className = "result";
+          option.innerHTML = `<span>${item.common_name_uk}</span><span>${
+            item.scientific_name || ""
+          }</span>`;
+          option.addEventListener("click", () => {
+            birdInput.value = item.common_name_uk;
+            birdIdInput.value = item.id;
+            clearResults();
+          });
+          if (index === activeIndex) {
+            option.classList.add("active");
+          }
+          birdResults.appendChild(option);
+        });
+        birdResults.hidden = false;
+      };
+
+      const fetchResults = async (value) => {
+        const response = await fetch(`/api/birds?q=${encodeURIComponent(value)}`);
+        if (!response.ok) {
+          clearResults();
+          return;
+        }
+        const data = await response.json();
+        renderResults(data);
+      };
+
+      birdInput.addEventListener("input", () => {
+        if (birdIdInput.value) {
+          birdIdInput.value = "";
+        }
+        const value = birdInput.value.trim();
+        if (value.length < 2) {
+          clearResults();
+          return;
+        }
+        fetchResults(value);
+      });
+
+      birdInput.addEventListener("keydown", (event) => {
+        const items = Array.from(birdResults.querySelectorAll(".result"));
+        if (!items.length) {
+          return;
+        }
+        if (event.key === "ArrowDown") {
+          event.preventDefault();
+          activeIndex = (activeIndex + 1) % items.length;
+          items.forEach((item, index) =>
+            item.classList.toggle("active", index === activeIndex)
+          );
+        }
+        if (event.key === "ArrowUp") {
+          event.preventDefault();
+          activeIndex = (activeIndex - 1 + items.length) % items.length;
+          items.forEach((item, index) =>
+            item.classList.toggle("active", index === activeIndex)
+          );
+        }
+        if (event.key === "Enter" && activeIndex >= 0) {
+          event.preventDefault();
+          items[activeIndex].click();
+        }
+      });
+
+      document.addEventListener("click", (event) => {
+        if (!birdResults.contains(event.target) && event.target !== birdInput) {
+          clearResults();
+        }
+      });
+
       const geoButton = document.getElementById("geo-button");
+      const geoClear = document.getElementById("geo-clear");
       const geoStatus = document.getElementById("geo-status");
       const locationField = document.getElementById("location-field");
       const latitudeField = document.getElementById("latitude-field");
@@ -121,6 +241,12 @@
               "Unable to access location. Check browser permissions.";
           }
         );
+      });
+
+      geoClear.addEventListener("click", () => {
+        latitudeField.value = "";
+        longitudeField.value = "";
+        geoStatus.textContent = "Location cleared.";
       });
     </script>
   </body>

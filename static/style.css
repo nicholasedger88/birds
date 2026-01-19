@@ -63,6 +63,47 @@ label {
   text-transform: uppercase;
 }
 
+.autocomplete {
+  position: relative;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.autocomplete-list {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  display: grid;
+  z-index: 10;
+}
+
+.autocomplete-list .result {
+  border: none;
+  background: #ffffff;
+  color: #111111;
+  padding: 0.6rem 0.75rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.9rem;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+.autocomplete-list .result span:last-child {
+  font-style: italic;
+  color: #666666;
+  font-size: 0.85rem;
+}
+
+.autocomplete-list .result.active,
+.autocomplete-list .result:hover {
+  background: #f2f2ef;
+}
+
 input,
 textarea {
   border: none;
@@ -88,6 +129,22 @@ button {
 button:hover {
   background: #ff3b30;
   color: #ffffff;
+}
+
+.location-row button {
+  padding: 0.55rem 1rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.18em;
+}
+
+.location-row #geo-clear {
+  background: transparent;
+  color: #111111;
+}
+
+.location-row #geo-clear:hover {
+  background: #111111;
+  color: #fdfcf9;
 }
 
 .location-row {
@@ -144,6 +201,9 @@ button:hover {
 
 .sighting-details {
   margin-top: 0.75rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 1.5rem;
 }
 
 .description,
@@ -157,6 +217,33 @@ button:hover {
 .description,
 .behavior {
   margin-top: 0;
+}
+
+.map {
+  margin: 0.5rem 0 0;
+  font-size: 0.85rem;
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.map a {
+  color: #111111;
+  text-decoration: none;
+  border-bottom: 1px solid #111111;
+}
+
+.map .label {
+  color: #6a6a6a;
+}
+
+.bird-image {
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 999px;
+  background: #f2f2ef;
 }
 
 .empty {

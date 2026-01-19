@@ -13,6 +13,12 @@
     />
   </head>
   <body>
+    <div class="corner-bird" aria-hidden="true">
+      <svg viewBox="0 0 40 24" role="img">
+        <path class="wing wing-top" d="M2 12 Q20 4 38 12" />
+        <path class="wing wing-bottom" d="M2 12 Q20 20 38 12" />
+      </svg>
+    </div>
     <main class="container">
       <header>
         <h1>Bird Log</h1>
@@ -366,6 +372,28 @@
         lngField.value = "";
         geoStatus.textContent = "Location cleared.";
       });
+
+      const triggerFlap = () => {
+        const bird = document.querySelector(".corner-bird");
+        if (!bird) {
+          return;
+        }
+        bird.classList.remove("flap-once");
+        void bird.offsetWidth;
+        bird.classList.add("flap-once");
+        bird.addEventListener(
+          "animationend",
+          () => bird.classList.remove("flap-once"),
+          { once: true }
+        );
+      };
+
+      const sightingForm = document.querySelector("form[action='{{ url_for('create_sighting') }}']");
+      if (sightingForm) {
+        sightingForm.addEventListener("submit", () => {
+          setTimeout(triggerFlap, 300);
+        });
+      }
 
       const buildParams = (fromInput, toInput, extra = {}) => {
         const params = new URLSearchParams(extra);

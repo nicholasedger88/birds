@@ -15,6 +15,59 @@ body {
   background-color: #faf9f6;
 }
 
+.corner-bird {
+  position: fixed;
+  top: 1.25rem;
+  right: 1.5rem;
+  width: 34px;
+  opacity: 0.28;
+  pointer-events: none;
+  z-index: 50;
+}
+
+.corner-bird svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  animation: glide 7.5s ease-in-out infinite;
+}
+
+.corner-bird .wing {
+  fill: none;
+  stroke: #111111;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+.corner-bird.flap-once svg {
+  animation: flapOnce 800ms ease-in-out 1;
+}
+
+@keyframes glide {
+  0%,
+  100% {
+    transform: translateY(0) scaleX(1);
+  }
+  50% {
+    transform: translateY(-3px) scaleX(1.03);
+  }
+}
+
+@keyframes flapOnce {
+  0% {
+    transform: translateY(0) scaleX(1);
+  }
+  25% {
+    transform: translateY(-2px) scaleX(1.08);
+  }
+  60% {
+    transform: translateY(1px) scaleX(0.98);
+  }
+  100% {
+    transform: translateY(0) scaleX(1);
+  }
+}
+
 .container {
   max-width: 1100px;
   margin: 0 auto;
@@ -426,6 +479,11 @@ button:hover {
 @media (max-width: 640px) {
   body {
     padding: 1.5rem 1.25rem 2.5rem;
+  }
+
+  .corner-bird {
+    width: 30px;
+    opacity: 0.22;
   }
 
   .map-canvas {

@@ -6,8 +6,10 @@ import sqlite3
 import urllib.error
 import urllib.parse
 import urllib.request
+from datetime import datetime, timezone
 from typing import Iterable
 
+import click
 from flask import Flask, jsonify, redirect, render_template, request, url_for
 
 from birds_seed import seed_birds
@@ -56,6 +58,8 @@ def init_db() -> None:
                 aliases TEXT,
                 wikipedia_title TEXT,
                 image_url TEXT,
+                wiki_status TEXT,
+                wiki_last_checked TEXT,
                 UNIQUE(common_name_uk, scientific_name)
             )
             """
@@ -75,6 +79,8 @@ def init_db() -> None:
             "aliases": "TEXT",
             "wikipedia_title": "TEXT",
             "image_url": "TEXT",
+            "wiki_status": "TEXT",
+            "wiki_last_checked": "TEXT",
         }
         for column, column_type in birds_optional.items():
             if column not in bird_columns:
@@ -190,9 +196,9 @@ def search_birds_query(connection: sqlite3.Connection, query: str) -> list[sqlit
     ).fetchall()
 
 
-def fetch_wikipedia_thumbnail(title: str) -> str | None:
+def fetch_wikipedia_thumbnail(title: str) -> tuple[str, str | None]:
     if not title:
-        return None
+        return "error", None
     encoded_title = urllib.parse.quote(title)
     url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{encoded_title}"
     request = urllib.request.Request(
@@ -202,26 +208,69 @@ def fetch_wikipedia_thumbnail(title: str) -> str | None:
     try:
         with urllib.request.urlopen(request, timeout=5) as response:
             payload = json.load(response)
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            return "not_found", None
+        return "error", None
     except (urllib.error.URLError, json.JSONDecodeError):
-        return None
+        return "error", None
+    if payload.get("type") == "disambiguation":
+        return "disambiguation", None
     thumbnail = payload.get("thumbnail", {})
     image_url = thumbnail.get("source")
+    if not image_url:
+        original = payload.get("originalimage", {})
+        image_url = original.get("source")
     if image_url and image_url.startswith("http://"):
         image_url = image_url.replace("http://", "https://", 1)
-    return image_url
+    if image_url:
+        return "ok", image_url
+    return "no_image", None
 
 
 def get_bird_thumbnail(connection: sqlite3.Connection, row: sqlite3.Row) -> str | None:
     if row["image_url"]:
         return row["image_url"] or None
-    title = row["wikipedia_title"] or row["common_name_uk"] or row["scientific_name"]
-    image_url = fetch_wikipedia_thumbnail(title)
+    titles = [
+        row["wikipedia_title"],
+        row["scientific_name"],
+        row["common_name_uk"],
+    ]
+    titles = [title for title in titles if title]
+    status = "error"
+    image_url = None
+    attempted_title = None
+    for title in titles:
+        status, image_url = fetch_wikipedia_thumbnail(title)
+        attempted_title = title
+        if status == "ok":
+            break
+    if not image_url and row["common_name_uk"]:
+        common = row["common_name_uk"].strip()
+        if len(common.split()) == 1:
+            fallback_title = f"{common} (bird)"
+            status, image_url = fetch_wikipedia_thumbnail(fallback_title)
+            attempted_title = fallback_title
+    last_checked = datetime.now(timezone.utc).isoformat()
     if image_url:
         connection.execute(
-            "UPDATE birds SET image_url = ? WHERE id = ?",
-            (image_url, row["id"]),
+            """
+            UPDATE birds
+            SET image_url = ?, wiki_status = ?, wiki_last_checked = ?
+            WHERE id = ?
+            """,
+            (image_url, status, last_checked, row["id"]),
         )
-    return image_url
+        return image_url
+    connection.execute(
+        """
+        UPDATE birds
+        SET wiki_status = ?, wiki_last_checked = ?
+        WHERE id = ?
+        """,
+        (status, last_checked, row["id"]),
+    )
+    return None
 
 
 def fetch_sightings() -> Iterable[sqlite3.Row]:
@@ -270,7 +319,7 @@ def search_birds():
                     "image_url": image_url,
                 }
             )
-    return jsonify(response)
+        return jsonify(response)
 
 
 @app.route("/api/sightings", methods=["GET"])
@@ -435,9 +484,18 @@ def debug_wiki():
         return jsonify({"status": 500, "error": str(exc)}), 500
     thumbnail = payload.get("thumbnail", {})
     image_url = thumbnail.get("source")
+    if not image_url:
+        image_url = payload.get("originalimage", {}).get("source")
     if image_url and image_url.startswith("http://"):
         image_url = image_url.replace("http://", "https://", 1)
-    return jsonify({"status": status, "image_url": image_url, "title": title})
+    return jsonify(
+        {
+            "status": status,
+            "title": title,
+            "page_type": payload.get("type"),
+            "image_url": image_url,
+        }
+    )
 
 
 @app.route("/api/debug/search-test", methods=["GET"])
@@ -530,6 +588,49 @@ def seed_birds_command() -> None:
     inserted, skipped, total = seed_birds(app.config["DATABASE"])
     print(f"Inserted/Skipped: {inserted}/{skipped}")
     print(f"Birds after seed: {total}")
+
+
+def fetch_thumbnails(connection: sqlite3.Connection, limit: int, force: bool) -> dict[str, int]:
+    where_clause = ""
+    params: dict[str, object] = {"limit": limit}
+    if not force:
+        where_clause = "WHERE image_url IS NULL OR wiki_status IS NULL OR wiki_status != 'ok'"
+    rows = connection.execute(
+        f"""
+        SELECT id, common_name_uk, scientific_name, wikipedia_title, image_url, wiki_status
+        FROM birds
+        {where_clause}
+        ORDER BY common_name_uk
+        LIMIT :limit
+        """,
+        params,
+    ).fetchall()
+    counts: dict[str, int] = {
+        "ok": 0,
+        "not_found": 0,
+        "disambiguation": 0,
+        "no_image": 0,
+        "error": 0,
+    }
+    for row in rows:
+        get_bird_thumbnail(connection, row)
+        status_row = connection.execute(
+            "SELECT wiki_status FROM birds WHERE id = ?",
+            (row["id"],),
+        ).fetchone()
+        status = status_row["wiki_status"] if status_row else "error"
+        counts[status] = counts.get(status, 0) + 1
+    return counts
+
+
+@app.cli.command("fetch-thumbnails")
+@click.option("--limit", default=200, show_default=True, type=int)
+@click.option("--force", is_flag=True, default=False, help="Refetch even if previously checked.")
+def fetch_thumbnails_command(limit: int, force: bool) -> None:
+    with get_connection() as connection:
+        counts = fetch_thumbnails(connection, limit, force)
+    for status, count in counts.items():
+        print(f"{status}: {count}")
 
 
 if __name__ == "__main__":

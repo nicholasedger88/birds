@@ -1,14 +1,17 @@
 from __future__ import annotations
 
+import json
 import re
 import sqlite3
-from pathlib import Path
+import urllib.error
+import urllib.parse
+import urllib.request
 from typing import Iterable
 
 from flask import Flask, jsonify, redirect, render_template, request, url_for
 
-BASE_DIR = Path(__file__).resolve().parent
-DB_PATH = BASE_DIR / "birds.db"
+from birds_seed import seed_birds
+from db import DB_PATH
 
 app = Flask(__name__)
 
@@ -31,6 +34,8 @@ def init_db() -> None:
                 bird_text TEXT,
                 latitude REAL,
                 longitude REAL,
+                lat REAL,
+                lng REAL,
                 location_label TEXT,
                 latin_name TEXT,
                 description TEXT,
@@ -47,10 +52,24 @@ def init_db() -> None:
                 common_name_uk TEXT NOT NULL,
                 scientific_name TEXT,
                 aliases TEXT,
+                wikipedia_title TEXT,
                 image_url TEXT
             )
             """
         )
+        bird_columns = {
+            row["name"]
+            for row in connection.execute("PRAGMA table_info(birds)").fetchall()
+        }
+        birds_optional = {
+            "scientific_name": "TEXT",
+            "aliases": "TEXT",
+            "wikipedia_title": "TEXT",
+            "image_url": "TEXT",
+        }
+        for column, column_type in birds_optional.items():
+            if column not in bird_columns:
+                connection.execute(f"ALTER TABLE birds ADD COLUMN {column} {column_type}")
         existing_columns = {
             row["name"]
             for row in connection.execute("PRAGMA table_info(sightings)").fetchall()
@@ -60,6 +79,8 @@ def init_db() -> None:
             "bird_text": "TEXT",
             "latitude": "REAL",
             "longitude": "REAL",
+            "lat": "REAL",
+            "lng": "REAL",
             "location_label": "TEXT",
             "latin_name": "TEXT",
             "description": "TEXT",
@@ -124,6 +145,33 @@ def match_score(query: str, candidate: str) -> tuple[int, int]:
     return (1, candidate.find(query))
 
 
+def fetch_wikipedia_thumbnail(title: str) -> str | None:
+    if not title:
+        return None
+    encoded_title = urllib.parse.quote(title)
+    url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{encoded_title}"
+    try:
+        with urllib.request.urlopen(url, timeout=5) as response:
+            payload = json.load(response)
+    except (urllib.error.URLError, json.JSONDecodeError):
+        return None
+    thumbnail = payload.get("thumbnail", {})
+    return thumbnail.get("source")
+
+
+def resolve_bird_thumbnail(connection: sqlite3.Connection, row: sqlite3.Row) -> str | None:
+    if row["image_url"]:
+        return row["image_url"]
+    title = row["wikipedia_title"] or row["common_name_uk"] or row["scientific_name"]
+    image_url = fetch_wikipedia_thumbnail(title)
+    if image_url:
+        connection.execute(
+            "UPDATE birds SET image_url = ? WHERE id = ?",
+            (image_url, row["id"]),
+        )
+    return image_url
+
+
 def fetch_sightings() -> Iterable[sqlite3.Row]:
     with get_connection() as connection:
         return connection.execute(
@@ -134,8 +182,8 @@ def fetch_sightings() -> Iterable[sqlite3.Row]:
                 sightings.location,
                 sightings.bird_id,
                 sightings.bird_text,
-                sightings.latitude,
-                sightings.longitude,
+                COALESCE(sightings.lat, sightings.latitude) AS lat,
+                COALESCE(sightings.lng, sightings.longitude) AS lng,
                 sightings.location_label,
                 sightings.latin_name,
                 sightings.description,
@@ -144,6 +192,7 @@ def fetch_sightings() -> Iterable[sqlite3.Row]:
                 sightings.spotted_at,
                 birds.common_name_uk,
                 birds.scientific_name,
+                birds.wikipedia_title,
                 birds.image_url
             FROM sightings
             LEFT JOIN birds ON birds.id = sightings.bird_id
@@ -161,35 +210,43 @@ def search_birds():
     with get_connection() as connection:
         rows = connection.execute(
             """
-            SELECT id, common_name_uk, scientific_name, aliases, image_url
+            SELECT
+                id,
+                common_name_uk,
+                scientific_name,
+                aliases,
+                wikipedia_title,
+                image_url
             FROM birds
             """
         ).fetchall()
 
-    matches = []
-    for row in rows:
-        values = [row["common_name_uk"]]
-        if row["aliases"]:
-            values.extend(alias.strip() for alias in row["aliases"].split(","))
-        normalized_values = [normalize_text(value) for value in values if value]
-        scores = [
-            match_score(query, value)
-            for value in normalized_values
-            if query in value
-        ]
-        if scores:
-            matches.append((min(scores), row))
+        matches: list[tuple[tuple[int, int], sqlite3.Row]] = []
+        for row in rows:
+            values = [row["common_name_uk"]]
+            if row["aliases"]:
+                values.extend(alias.strip() for alias in row["aliases"].split(","))
+            normalized_values = [normalize_text(value) for value in values if value]
+            scores = [
+                match_score(query, value)
+                for value in normalized_values
+                if query in value
+            ]
+            if scores:
+                matches.append((min(scores), row))
 
-    matches.sort(key=lambda item: item[0])
-    response = [
-        {
-            "id": row["id"],
-            "common_name_uk": row["common_name_uk"],
-            "scientific_name": row["scientific_name"],
-            "image_url": row["image_url"],
-        }
-        for _, row in matches[:10]
-    ]
+        matches.sort(key=lambda item: item[0])
+        response = []
+        for _, row in matches[:10]:
+            image_url = resolve_bird_thumbnail(connection, row)
+            response.append(
+                {
+                    "id": row["id"],
+                    "common_name_uk": row["common_name_uk"],
+                    "scientific_name": row["scientific_name"],
+                    "image_url": image_url,
+                }
+            )
     return jsonify(response)
 
 
@@ -204,8 +261,8 @@ def create_sighting():
     bird_name = request.form.get("bird_name", "").strip()
     location = request.form.get("location", "").strip()
     location_label = request.form.get("location_label", "").strip()
-    latitude = request.form.get("latitude", "").strip() or None
-    longitude = request.form.get("longitude", "").strip() or None
+    lat = request.form.get("lat", "").strip() or None
+    lng = request.form.get("lng", "").strip() or None
     notes = request.form.get("notes", "").strip()
     bird_id = request.form.get("bird_id", "").strip() or None
     bird_text = bird_name if not bird_id else None
@@ -224,8 +281,8 @@ def create_sighting():
                     location,
                     bird_id,
                     bird_text,
-                    latitude,
-                    longitude,
+                    lat,
+                    lng,
                     location_label,
                     latin_name,
                     description,
@@ -237,10 +294,10 @@ def create_sighting():
                 (
                     bird_name,
                     location,
-                    bird_id,
+                    int(bird_id) if bird_id else None,
                     bird_text,
-                    latitude,
-                    longitude,
+                    lat,
+                    lng,
                     location_label or None,
                     latin_name,
                     description,
@@ -250,6 +307,12 @@ def create_sighting():
             )
 
     return redirect(url_for("index"))
+
+
+@app.cli.command("seed-birds")
+def seed_birds_command() -> None:
+    count = seed_birds(DB_PATH)
+    print(f"Seeded {count} UK birds into {DB_PATH}.")
 
 
 if __name__ == "__main__":

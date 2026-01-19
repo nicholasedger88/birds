@@ -11,7 +11,7 @@
 
 body {
   margin: 0;
-  padding: 2.5rem 2rem 4rem;
+  padding: 2rem 1.75rem 3rem;
   background-color: #faf9f6;
 }
 
@@ -20,46 +20,46 @@ body {
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: 1.25rem;
 }
 
 header h1 {
   margin-bottom: 0.5rem;
-  font-size: 2.4rem;
-  letter-spacing: 0.12em;
+  font-size: 2rem;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   font-weight: 600;
 }
 
 header p {
   margin: 0;
-  font-size: 1rem;
+  font-size: 0.9rem;
   color: #3f3f3f;
 }
 
 .panel {
-  padding: 2rem;
+  padding: 1.5rem;
   background-color: #fdfcf9;
 }
 
 .panel h2 {
   margin-top: 0;
-  font-size: 1rem;
-  letter-spacing: 0.2em;
+  font-size: 0.85rem;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   font-weight: 700;
 }
 
 form {
   display: grid;
-  gap: 1.25rem;
+  gap: 1rem;
 }
 
 label {
   display: grid;
   gap: 0.5rem;
-  font-size: 0.85rem;
-  letter-spacing: 0.08em;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
@@ -75,7 +75,7 @@ label {
   left: 0;
   right: 0;
   background: #ffffff;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
   display: grid;
   z-index: 10;
 }
@@ -107,10 +107,10 @@ label {
 input,
 textarea {
   border: none;
-  border-bottom: 2px solid #111111;
-  padding: 0.75rem;
+  border-bottom: 1px solid #111111;
+  padding: 0.6rem;
   font-family: inherit;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   background-color: #fdfcf9;
 }
 
@@ -118,9 +118,9 @@ button {
   border: none;
   background: #111111;
   color: #fdfcf9;
-  padding: 0.75rem 1.5rem;
+  padding: 0.55rem 1.1rem;
   font-family: inherit;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   cursor: pointer;
   width: fit-content;
@@ -132,9 +132,9 @@ button:hover {
 }
 
 .location-row button {
-  padding: 0.55rem 1rem;
-  font-size: 0.75rem;
-  letter-spacing: 0.18em;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
 }
 
 .location-row #geo-clear {
@@ -156,7 +156,7 @@ button:hover {
 
 .helper {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: #6a6a6a;
 }
 
@@ -165,18 +165,18 @@ button:hover {
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 1.5rem;
+  gap: 1.1rem;
 }
 
 .sighting-list li {
-  padding-bottom: 1.5rem;
+  padding-bottom: 1.1rem;
 }
 
 .sighting-meta {
   display: flex;
   flex-wrap: wrap;
   gap: 1rem;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   align-items: baseline;
 }
 
@@ -186,7 +186,7 @@ button:hover {
 
 .sighting-meta .latin {
   font-style: italic;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: #4a4a4a;
   margin-left: 0.5rem;
 }
@@ -203,7 +203,7 @@ button:hover {
   margin-top: 0.75rem;
   display: flex;
   justify-content: space-between;
-  gap: 1.5rem;
+  gap: 1rem;
 }
 
 .description,
@@ -211,7 +211,8 @@ button:hover {
 .notes {
   margin: 0.5rem 0 0;
   color: #111111;
-  line-height: 1.6;
+  line-height: 1.5;
+  font-size: 0.88rem;
 }
 
 .description,
@@ -221,7 +222,7 @@ button:hover {
 
 .map {
   margin: 0.5rem 0 0;
-  font-size: 0.85rem;
+  font-size: 0.78rem;
   display: flex;
   gap: 0.75rem;
   flex-wrap: wrap;
@@ -239,8 +240,8 @@ button:hover {
 }
 
 .bird-image {
-  width: 120px;
-  height: 120px;
+  width: 84px;
+  height: 84px;
   object-fit: cover;
   border-radius: 999px;
   background: #f2f2ef;
@@ -254,6 +255,6 @@ button:hover {
 
 @media (max-width: 640px) {
   body {
-    padding: 2rem 1.25rem 3rem;
+    padding: 1.5rem 1.25rem 2.5rem;
   }
 }

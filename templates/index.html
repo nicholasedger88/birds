@@ -50,8 +50,8 @@
             Location label (optional)
             <input type="text" name="location_label" placeholder="Sefton Park" />
           </label>
-          <input type="hidden" name="latitude" id="latitude-field" />
-          <input type="hidden" name="longitude" id="longitude-field" />
+          <input type="hidden" name="lat" id="lat-field" />
+          <input type="hidden" name="lng" id="lng-field" />
           <label>
             Notes (optional)
             <textarea name="notes" rows="3" placeholder="Behavior, weather, or details"></textarea>
@@ -92,10 +92,10 @@
                     {% if sighting['notes'] %}
                       <p class="notes">{{ sighting['notes'] }}</p>
                     {% endif %}
-                    {% if sighting['latitude'] and sighting['longitude'] %}
+                    {% if sighting['lat'] and sighting['lng'] %}
                       <p class="map">
                         <a
-                          href="https://www.google.com/maps?q={{ sighting['latitude'] }},{{ sighting['longitude'] }}"
+                          href="https://www.google.com/maps?q={{ sighting['lat'] }},{{ sighting['lng'] }}"
                           target="_blank"
                           rel="noreferrer"
                         >
@@ -219,8 +219,8 @@
       const geoClear = document.getElementById("geo-clear");
       const geoStatus = document.getElementById("geo-status");
       const locationField = document.getElementById("location-field");
-      const latitudeField = document.getElementById("latitude-field");
-      const longitudeField = document.getElementById("longitude-field");
+      const latField = document.getElementById("lat-field");
+      const lngField = document.getElementById("lng-field");
 
       geoButton.addEventListener("click", () => {
         if (!navigator.geolocation) {
@@ -231,8 +231,8 @@
         navigator.geolocation.getCurrentPosition(
           (position) => {
             const { latitude, longitude } = position.coords;
-            latitudeField.value = latitude.toFixed(6);
-            longitudeField.value = longitude.toFixed(6);
+            latField.value = latitude.toFixed(6);
+            lngField.value = longitude.toFixed(6);
             locationField.value = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
             geoStatus.textContent = "Location captured.";
           },
@@ -244,8 +244,8 @@
       });
 
       geoClear.addEventListener("click", () => {
-        latitudeField.value = "";
-        longitudeField.value = "";
+        latField.value = "";
+        lngField.value = "";
         geoStatus.textContent = "Location cleared.";
       });
     </script>

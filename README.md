@@ -12,6 +12,13 @@ python scripts/seed_birds.py
 python app.py
 ```
 
+Or run the Flask CLI command:
+
+```bash
+export FLASK_APP=app.py
+flask seed-birds
+```
+
 Then open `http://localhost:8000` in your browser.
 
 ## Usage
@@ -20,3 +27,5 @@ Then open `http://localhost:8000` in your browser.
 - The front page also lists your most recent sightings with descriptions and behavior.
 - Click "Use my location" to capture coordinates (browser permission required).
 - Autocomplete suggestions come from the bundled UK bird list.
+- Verify autocomplete by typing at least 2 characters in the bird field or visiting
+  `http://localhost:8000/api/birds?q=rob`.

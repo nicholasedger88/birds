@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Bird Log</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  </head>
+  <body>
+    <main class="container">
+      <header>
+        <h1>Bird Log</h1>
+        <p>Track the birds you spot and where you spotted them.</p>
+      </header>
+
+      <section class="panel">
+        <h2>Log a new sighting</h2>
+        <form action="{{ url_for('create_sighting') }}" method="post">
+          <label>
+            Bird name
+            <input type="text" name="bird_name" placeholder="Northern Cardinal" required />
+          </label>
+          <label>
+            Location
+            <input type="text" name="location" placeholder="Lakefront trail" required />
+          </label>
+          <label>
+            Notes (optional)
+            <textarea name="notes" rows="3" placeholder="Behavior, weather, or details"></textarea>
+          </label>
+          <button type="submit">Add sighting</button>
+        </form>
+      </section>
+
+      <section class="panel">
+        <h2>Recent sightings</h2>
+        {% if sightings %}
+          <ul class="sighting-list">
+            {% for sighting in sightings %}
+              <li>
+                <div class="sighting-meta">
+                  <span class="bird">{{ sighting['bird_name'] }}</span>
+                  <span class="location">{{ sighting['location'] }}</span>
+                  <span class="time">{{ sighting['spotted_at'] }}</span>
+                </div>
+                {% if sighting['notes'] %}
+                  <p class="notes">{{ sighting['notes'] }}</p>
+                {% endif %}
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="empty">No sightings yet. Add one above to start your log.</p>
+        {% endif %}
+      </section>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,127 @@
+:root {
+  color-scheme: light;
+  font-family: "Courier New", Courier, monospace;
+  background-color: #f7f4ef;
+  color: #1b1b1b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 2rem 1.5rem 4rem;
+  background-color: #f7f4ef;
+}
+
+.container {
+  max-width: 720px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+header h1 {
+  margin-bottom: 0.5rem;
+  font-size: 2.2rem;
+  letter-spacing: 0.05em;
+}
+
+header p {
+  margin: 0;
+  font-size: 1rem;
+  color: #4a4a4a;
+}
+
+.panel {
+  border: 1px solid #1b1b1b;
+  padding: 1.5rem;
+  background-color: #fffdf8;
+}
+
+.panel h2 {
+  margin-top: 0;
+  font-size: 1.2rem;
+  letter-spacing: 0.04em;
+}
+
+form {
+  display: grid;
+  gap: 1rem;
+}
+
+label {
+  display: grid;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+}
+
+input,
+textarea {
+  border: 1px solid #1b1b1b;
+  padding: 0.6rem;
+  font-family: inherit;
+  font-size: 0.95rem;
+  background-color: #fdfbf7;
+}
+
+button {
+  border: 1px solid #1b1b1b;
+  background: #1b1b1b;
+  color: #f7f4ef;
+  padding: 0.6rem 1.4rem;
+  font-family: inherit;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  width: fit-content;
+}
+
+button:hover {
+  background: #3a3a3a;
+}
+
+.sighting-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 1rem;
+}
+
+.sighting-list li {
+  border-bottom: 1px dashed #1b1b1b;
+  padding-bottom: 0.75rem;
+}
+
+.sighting-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  font-size: 0.95rem;
+}
+
+.sighting-meta .bird {
+  font-weight: bold;
+}
+
+.sighting-meta .location {
+  color: #2b2b2b;
+}
+
+.sighting-meta .time {
+  color: #6a6a6a;
+}
+
+.notes {
+  margin: 0.5rem 0 0;
+  color: #303030;
+}
+
+.empty {
+  margin: 0;
+  font-style: italic;
+  color: #5a5a5a;
+}

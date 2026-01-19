@@ -204,16 +204,18 @@ def fetch_wikipedia_thumbnail(title: str) -> str | None:
     return thumbnail.get("source")
 
 
-def resolve_bird_thumbnail(connection: sqlite3.Connection, row: sqlite3.Row) -> str | None:
+def get_bird_thumbnail(connection: sqlite3.Connection, row: sqlite3.Row) -> str | None:
     if row["image_url"]:
-        return row["image_url"]
+        return row["image_url"] or None
+    if row["image_url"] == "":
+        return None
     title = row["wikipedia_title"] or row["common_name_uk"] or row["scientific_name"]
     image_url = fetch_wikipedia_thumbnail(title)
-    if image_url:
-        connection.execute(
-            "UPDATE birds SET image_url = ? WHERE id = ?",
-            (image_url, row["id"]),
-        )
+    cached_value = image_url or ""
+    connection.execute(
+        "UPDATE birds SET image_url = ? WHERE id = ?",
+        (cached_value, row["id"]),
+    )
     return image_url
 
 
@@ -251,8 +253,12 @@ def search_birds():
     with get_connection() as connection:
         rows = search_birds_query(connection, request.args.get("q", ""))
         response = []
-        for row in rows:
-            image_url = resolve_bird_thumbnail(connection, row)
+        for index, row in enumerate(rows):
+            image_url = row["image_url"]
+            if image_url is None and index < 5:
+                image_url = get_bird_thumbnail(connection, row)
+            elif image_url == "":
+                image_url = None
             response.append(
                 {
                     "id": row["id"],
@@ -266,37 +272,78 @@ def search_birds():
 
 @app.route("/api/sightings", methods=["GET"])
 def sightings_api():
+    from_date = request.args.get("from", "").strip()
+    to_date = request.args.get("to", "").strip()
+    only_geocoded = request.args.get("only_geocoded", "").strip() == "1"
+
+    filters = []
+    params: dict[str, str] = {}
+
+    if from_date:
+        filters.append("sightings.spotted_at >= :from_date")
+        params["from_date"] = f"{from_date} 00:00:00"
+    if to_date:
+        filters.append("sightings.spotted_at < datetime(:to_date, '+1 day')")
+        params["to_date"] = f"{to_date} 00:00:00"
+    if only_geocoded:
+        filters.append(
+            "COALESCE(sightings.lat, sightings.latitude) IS NOT NULL "
+            "AND COALESCE(sightings.lng, sightings.longitude) IS NOT NULL"
+        )
+
+    where_clause = f"WHERE {' AND '.join(filters)}" if filters else ""
+
     with get_connection() as connection:
         rows = connection.execute(
-            """
+            f"""
             SELECT
                 sightings.id,
-                COALESCE(birds.common_name_uk, sightings.bird_text, sightings.bird_name)
-                    AS display_name,
-                birds.scientific_name,
+                sightings.spotted_at,
+                sightings.description,
+                sightings.behavior,
+                sightings.notes,
                 COALESCE(sightings.lat, sightings.latitude) AS lat,
                 COALESCE(sightings.lng, sightings.longitude) AS lng,
-                sightings.spotted_at
+                birds.common_name_uk,
+                birds.scientific_name,
+                birds.wikipedia_title,
+                birds.image_url
             FROM sightings
             LEFT JOIN birds ON birds.id = sightings.bird_id
-            WHERE COALESCE(sightings.lat, sightings.latitude) IS NOT NULL
-              AND COALESCE(sightings.lng, sightings.longitude) IS NOT NULL
+            {where_clause}
             ORDER BY sightings.spotted_at DESC, sightings.id DESC
-            """
+            """,
+            params,
         ).fetchall()
-    return jsonify(
-        [
-            {
-                "id": row["id"],
-                "display_name": row["display_name"],
-                "scientific_name": row["scientific_name"],
-                "lat": row["lat"],
-                "lng": row["lng"],
-                "spotted_at": row["spotted_at"],
-            }
-            for row in rows
-        ]
-    )
+
+        response = []
+        for row in rows:
+            image_url = row["image_url"]
+            if image_url is None and row["common_name_uk"]:
+                image_url = get_bird_thumbnail(connection, row)
+            elif image_url == "":
+                image_url = None
+            google_maps_url = None
+            if row["lat"] is not None and row["lng"] is not None:
+                google_maps_url = (
+                    f"https://www.google.com/maps?q={row['lat']},{row['lng']}"
+                )
+            response.append(
+                {
+                    "id": row["id"],
+                    "created_at": row["spotted_at"],
+                    "common_name_uk": row["common_name_uk"],
+                    "scientific_name": row["scientific_name"],
+                    "image_url": image_url,
+                    "description": row["description"],
+                    "behavior": row["behavior"],
+                    "notes": row["notes"],
+                    "lat": row["lat"],
+                    "lng": row["lng"],
+                    "google_maps_url": google_maps_url,
+                }
+            )
+    return jsonify(response)
 
 
 @app.route("/api/debug/db-info", methods=["GET"])

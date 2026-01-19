@@ -31,3 +31,5 @@ Then open `http://localhost:8000` in your browser.
   `http://localhost:8000/api/birds?q=rob`.
 - Debug database state at `http://localhost:8000/api/debug/db-info`.
 - Smoke-test search results at `http://localhost:8000/api/debug/search-test`.
+- Use the date filters to update both the Recent list and Map markers (filters are stored
+  in the URL query string).

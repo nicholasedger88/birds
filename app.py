@@ -14,8 +14,8 @@ from birds_seed import seed_birds
 from db import DB_PATH
 
 app = Flask(__name__)
-app.config["DATABASE"] = DB_PATH
-print(f"Using database: {DB_PATH}")
+app.config["DATABASE"] = str(DB_PATH)
+print(f"Using database: {app.config['DATABASE']}")
 
 
 def get_connection() -> sqlite3.Connection:
@@ -318,6 +318,18 @@ def debug_db_info():
     )
 
 
+@app.route("/api/debug/db", methods=["GET"])
+def debug_db():
+    with get_connection() as connection:
+        birds_count = connection.execute("SELECT COUNT(*) FROM birds").fetchone()[0]
+    return jsonify(
+        {
+            "db_path": str(app.config["DATABASE"]),
+            "birds_count": birds_count,
+        }
+    )
+
+
 @app.route("/api/debug/search-test", methods=["GET"])
 def debug_search_test():
     with get_connection() as connection:
@@ -404,9 +416,10 @@ def create_sighting():
 
 @app.cli.command("seed-birds")
 def seed_birds_command() -> None:
-    print(f"Using database: {app.config['DATABASE']}")
-    count = seed_birds(app.config["DATABASE"])
-    print(f"Birds in table after seed: {count}")
+    print(f"Seeding DB: {app.config['DATABASE']}")
+    inserted, skipped, total = seed_birds(app.config["DATABASE"])
+    print(f"Inserted/Skipped: {inserted}/{skipped}")
+    print(f"Birds after seed: {total}")
 
 
 if __name__ == "__main__":

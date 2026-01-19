@@ -26,11 +26,32 @@ def init_db() -> None:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 bird_name TEXT NOT NULL,
                 location TEXT NOT NULL,
+                latitude REAL,
+                longitude REAL,
+                latin_name TEXT,
+                description TEXT,
+                behavior TEXT,
                 notes TEXT,
                 spotted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
             """
         )
+        existing_columns = {
+            row["name"]
+            for row in connection.execute("PRAGMA table_info(sightings)").fetchall()
+        }
+        optional_columns = {
+            "latitude": "REAL",
+            "longitude": "REAL",
+            "latin_name": "TEXT",
+            "description": "TEXT",
+            "behavior": "TEXT",
+        }
+        for column, column_type in optional_columns.items():
+            if column not in existing_columns:
+                connection.execute(
+                    f"ALTER TABLE sightings ADD COLUMN {column} {column_type}"
+                )
 
 
 init_db()
@@ -40,7 +61,17 @@ def fetch_sightings() -> Iterable[sqlite3.Row]:
     with get_connection() as connection:
         return connection.execute(
             """
-            SELECT id, bird_name, location, notes, spotted_at
+            SELECT
+                id,
+                bird_name,
+                location,
+                latitude,
+                longitude,
+                latin_name,
+                description,
+                behavior,
+                notes,
+                spotted_at
             FROM sightings
             ORDER BY spotted_at DESC, id DESC
             """
@@ -57,16 +88,42 @@ def index() -> str:
 def create_sighting():
     bird_name = request.form.get("bird_name", "").strip()
     location = request.form.get("location", "").strip()
+    latitude = request.form.get("latitude", "").strip() or None
+    longitude = request.form.get("longitude", "").strip() or None
+    latin_name = request.form.get("latin_name", "").strip()
+    description = request.form.get("description", "").strip()
+    behavior = request.form.get("behavior", "").strip()
     notes = request.form.get("notes", "").strip()
+
+    if not location and latitude and longitude:
+        location = f"{latitude}, {longitude}"
 
     if bird_name and location:
         with get_connection() as connection:
             connection.execute(
                 """
-                INSERT INTO sightings (bird_name, location, notes)
-                VALUES (?, ?, ?)
+                INSERT INTO sightings (
+                    bird_name,
+                    location,
+                    latitude,
+                    longitude,
+                    latin_name,
+                    description,
+                    behavior,
+                    notes
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (bird_name, location, notes or None),
+                (
+                    bird_name,
+                    location,
+                    latitude,
+                    longitude,
+                    latin_name or None,
+                    description or None,
+                    behavior or None,
+                    notes or None,
+                ),
             )
 
     return redirect(url_for("index"))

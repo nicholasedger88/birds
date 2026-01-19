@@ -1,8 +1,9 @@
 :root {
   color-scheme: light;
-  font-family: "Courier New", Courier, monospace;
-  background-color: #f7f4ef;
-  color: #1b1b1b;
+  font-family: "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif JP",
+    "MS Mincho", serif;
+  background-color: #f7f4ee;
+  color: #1f1b16;
 }
 
 * {
@@ -11,8 +12,8 @@
 
 body {
   margin: 0;
-  padding: 2rem 1.5rem 4rem;
-  background-color: #f7f4ef;
+  padding: 2.5rem 1.5rem 4rem;
+  background-color: #f7f4ee;
 }
 
 .container {
@@ -25,26 +26,29 @@ body {
 
 header h1 {
   margin-bottom: 0.5rem;
-  font-size: 2.2rem;
-  letter-spacing: 0.05em;
+  font-size: 2.1rem;
+  letter-spacing: 0.08em;
+  font-weight: 500;
 }
 
 header p {
   margin: 0;
   font-size: 1rem;
-  color: #4a4a4a;
+  color: #5c534a;
 }
 
 .panel {
-  border: 1px solid #1b1b1b;
-  padding: 1.5rem;
-  background-color: #fffdf8;
+  border: 1px solid #2c2620;
+  padding: 1.75rem;
+  background-color: #fcfbf7;
 }
 
 .panel h2 {
   margin-top: 0;
-  font-size: 1.2rem;
-  letter-spacing: 0.04em;
+  font-size: 1.1rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 500;
 }
 
 form {
@@ -55,32 +59,46 @@ form {
 label {
   display: grid;
   gap: 0.5rem;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
+  letter-spacing: 0.04em;
 }
 
 input,
 textarea {
-  border: 1px solid #1b1b1b;
-  padding: 0.6rem;
+  border: 1px solid #2c2620;
+  padding: 0.65rem;
   font-family: inherit;
   font-size: 0.95rem;
-  background-color: #fdfbf7;
+  background-color: #f9f7f2;
 }
 
 button {
-  border: 1px solid #1b1b1b;
-  background: #1b1b1b;
-  color: #f7f4ef;
-  padding: 0.6rem 1.4rem;
+  border: 1px solid #2c2620;
+  background: transparent;
+  color: #2c2620;
+  padding: 0.55rem 1.2rem;
   font-family: inherit;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   cursor: pointer;
   width: fit-content;
 }
 
 button:hover {
-  background: #3a3a3a;
+  background: #2c2620;
+  color: #f7f4ee;
+}
+
+.location-row {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.helper {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #6d6358;
 }
 
 .sighting-list {
@@ -92,8 +110,8 @@ button:hover {
 }
 
 .sighting-list li {
-  border-bottom: 1px dashed #1b1b1b;
-  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #d6cfc4;
+  padding-bottom: 1.1rem;
 }
 
 .sighting-meta {
@@ -101,27 +119,78 @@ button:hover {
   flex-wrap: wrap;
   gap: 0.75rem;
   font-size: 0.95rem;
+  align-items: baseline;
 }
 
 .sighting-meta .bird {
   font-weight: bold;
 }
 
+.sighting-meta .latin {
+  font-style: italic;
+  font-size: 0.85rem;
+  color: #6b6157;
+  margin-left: 0.4rem;
+}
+
 .sighting-meta .location {
-  color: #2b2b2b;
+  color: #3a322b;
 }
 
 .sighting-meta .time {
-  color: #6a6a6a;
+  color: #7b7267;
 }
 
+.sighting-details {
+  display: grid;
+  grid-template-columns: minmax(100px, 160px) 1fr;
+  gap: 1rem;
+  margin-top: 0.75rem;
+  align-items: center;
+}
+
+.sketch {
+  color: #2c2620;
+  padding: 0.5rem;
+  border: 1px solid #d6cfc4;
+  background: #f8f4ec;
+}
+
+.sketch svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.description,
+.behavior,
 .notes {
   margin: 0.5rem 0 0;
-  color: #303030;
+  color: #3a322b;
+}
+
+.description,
+.behavior {
+  margin-top: 0;
+}
+
+.map-link {
+  display: inline-block;
+  margin-top: 0.5rem;
+  text-decoration: none;
+  color: #2c2620;
+  border-bottom: 1px solid #2c2620;
+  letter-spacing: 0.05em;
 }
 
 .empty {
   margin: 0;
   font-style: italic;
-  color: #5a5a5a;
+  color: #6b6157;
+}
+
+@media (max-width: 640px) {
+  .sighting-details {
+    grid-template-columns: 1fr;
+  }
 }

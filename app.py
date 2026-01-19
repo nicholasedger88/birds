@@ -26,6 +26,8 @@ def init_db() -> None:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 bird_name TEXT NOT NULL,
                 location TEXT NOT NULL,
+                latitude REAL,
+                longitude REAL,
                 latin_name TEXT,
                 description TEXT,
                 behavior TEXT,
@@ -39,6 +41,8 @@ def init_db() -> None:
             for row in connection.execute("PRAGMA table_info(sightings)").fetchall()
         }
         optional_columns = {
+            "latitude": "REAL",
+            "longitude": "REAL",
             "latin_name": "TEXT",
             "description": "TEXT",
             "behavior": "TEXT",
@@ -118,6 +122,8 @@ def index() -> str:
 def create_sighting():
     bird_name = request.form.get("bird_name", "").strip()
     location = request.form.get("location", "").strip()
+    latitude = request.form.get("latitude", "").strip() or None
+    longitude = request.form.get("longitude", "").strip() or None
     notes = request.form.get("notes", "").strip()
 
     profile = bird_profile_for_name(bird_name)
@@ -132,16 +138,20 @@ def create_sighting():
                 INSERT INTO sightings (
                     bird_name,
                     location,
+                    latitude,
+                    longitude,
                     latin_name,
                     description,
                     behavior,
                     notes
                 )
-                VALUES (?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     bird_name,
                     location,
+                    latitude,
+                    longitude,
                     latin_name,
                     description,
                     behavior,

@@ -32,16 +32,29 @@
               <option value="Barn Swallow"></option>
               <option value="Great Egret"></option>
             </datalist>
+            <span class="helper">Type any species; suggestions are optional.</span>
           </label>
           <label>
             Location
-            <input type="text" name="location" placeholder="Lakefront trail" required />
+            <div class="location-row">
+              <input
+                type="text"
+                name="location"
+                id="location-field"
+                placeholder="Lakefront trail"
+                required
+              />
+              <button type="button" id="geo-button">Use my location</button>
+            </div>
           </label>
+          <input type="hidden" name="latitude" id="latitude-field" />
+          <input type="hidden" name="longitude" id="longitude-field" />
           <label>
             Notes (optional)
             <textarea name="notes" rows="3" placeholder="Behavior, weather, or details"></textarea>
           </label>
           <button type="submit">Add sighting</button>
+          <p class="helper" id="geo-status">Location uses your browser's GPS when available.</p>
         </form>
       </section>
 
@@ -82,5 +95,33 @@
         {% endif %}
       </section>
     </main>
+    <script>
+      const geoButton = document.getElementById("geo-button");
+      const geoStatus = document.getElementById("geo-status");
+      const locationField = document.getElementById("location-field");
+      const latitudeField = document.getElementById("latitude-field");
+      const longitudeField = document.getElementById("longitude-field");
+
+      geoButton.addEventListener("click", () => {
+        if (!navigator.geolocation) {
+          geoStatus.textContent = "Geolocation is not supported in this browser.";
+          return;
+        }
+        geoStatus.textContent = "Finding your location...";
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const { latitude, longitude } = position.coords;
+            latitudeField.value = latitude.toFixed(6);
+            longitudeField.value = longitude.toFixed(6);
+            locationField.value = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+            geoStatus.textContent = "Location captured.";
+          },
+          () => {
+            geoStatus.textContent =
+              "Unable to access location. Check browser permissions.";
+          }
+        );
+      });
+    </script>
   </body>
 </html>

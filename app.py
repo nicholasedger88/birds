@@ -195,27 +195,32 @@ def fetch_wikipedia_thumbnail(title: str) -> str | None:
         return None
     encoded_title = urllib.parse.quote(title)
     url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{encoded_title}"
+    request = urllib.request.Request(
+        url,
+        headers={"User-Agent": "BirdLog/1.0 (+https://github.com/nicholasedger88/birds)"},
+    )
     try:
-        with urllib.request.urlopen(url, timeout=5) as response:
+        with urllib.request.urlopen(request, timeout=5) as response:
             payload = json.load(response)
     except (urllib.error.URLError, json.JSONDecodeError):
         return None
     thumbnail = payload.get("thumbnail", {})
-    return thumbnail.get("source")
+    image_url = thumbnail.get("source")
+    if image_url and image_url.startswith("http://"):
+        image_url = image_url.replace("http://", "https://", 1)
+    return image_url
 
 
 def get_bird_thumbnail(connection: sqlite3.Connection, row: sqlite3.Row) -> str | None:
     if row["image_url"]:
         return row["image_url"] or None
-    if row["image_url"] == "":
-        return None
     title = row["wikipedia_title"] or row["common_name_uk"] or row["scientific_name"]
     image_url = fetch_wikipedia_thumbnail(title)
-    cached_value = image_url or ""
-    connection.execute(
-        "UPDATE birds SET image_url = ? WHERE id = ?",
-        (cached_value, row["id"]),
-    )
+    if image_url:
+        connection.execute(
+            "UPDATE birds SET image_url = ? WHERE id = ?",
+            (image_url, row["id"]),
+        )
     return image_url
 
 
@@ -257,8 +262,6 @@ def search_birds():
             image_url = row["image_url"]
             if image_url is None and index < 5:
                 image_url = get_bird_thumbnail(connection, row)
-            elif image_url == "":
-                image_url = None
             response.append(
                 {
                     "id": row["id"],
@@ -275,6 +278,7 @@ def sightings_api():
     from_date = request.args.get("from", "").strip()
     to_date = request.args.get("to", "").strip()
     only_geocoded = request.args.get("only_geocoded", "").strip() == "1"
+    bird_id = request.args.get("bird_id", "").strip()
 
     filters = []
     params: dict[str, str] = {}
@@ -290,6 +294,9 @@ def sightings_api():
             "COALESCE(sightings.lat, sightings.latitude) IS NOT NULL "
             "AND COALESCE(sightings.lng, sightings.longitude) IS NOT NULL"
         )
+    if bird_id:
+        filters.append("sightings.bird_id = :bird_id")
+        params["bird_id"] = bird_id
 
     where_clause = f"WHERE {' AND '.join(filters)}" if filters else ""
 
@@ -321,8 +328,14 @@ def sightings_api():
             image_url = row["image_url"]
             if image_url is None and row["common_name_uk"]:
                 image_url = get_bird_thumbnail(connection, row)
-            elif image_url == "":
-                image_url = None
+            wiki_title = row["wikipedia_title"] or row["common_name_uk"] or row[
+                "scientific_name"
+            ]
+            wiki_url = (
+                f"https://en.wikipedia.org/wiki/{urllib.parse.quote(wiki_title)}"
+                if wiki_title
+                else None
+            )
             google_maps_url = None
             if row["lat"] is not None and row["lng"] is not None:
                 google_maps_url = (
@@ -335,6 +348,7 @@ def sightings_api():
                     "common_name_uk": row["common_name_uk"],
                     "scientific_name": row["scientific_name"],
                     "image_url": image_url,
+                    "wiki_url": wiki_url,
                     "description": row["description"],
                     "behavior": row["behavior"],
                     "notes": row["notes"],
@@ -375,6 +389,55 @@ def debug_db():
             "birds_count": birds_count,
         }
     )
+
+
+@app.route("/api/debug/birds-sample", methods=["GET"])
+def debug_birds_sample():
+    with get_connection() as connection:
+        rows = connection.execute(
+            """
+            SELECT common_name_uk, wikipedia_title, image_url
+            FROM birds
+            ORDER BY common_name_uk
+            LIMIT 5
+            """
+        ).fetchall()
+    return jsonify(
+        [
+            {
+                "common_name_uk": row["common_name_uk"],
+                "wikipedia_title": row["wikipedia_title"],
+                "image_url": row["image_url"],
+            }
+            for row in rows
+        ]
+    )
+
+
+@app.route("/api/debug/wiki", methods=["GET"])
+def debug_wiki():
+    title = request.args.get("title", "").strip()
+    if not title:
+        return jsonify({"error": "title is required"}), 400
+    encoded_title = urllib.parse.quote(title)
+    url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{encoded_title}"
+    request_obj = urllib.request.Request(
+        url,
+        headers={"User-Agent": "BirdLog/1.0 (+https://github.com/nicholasedger88/birds)"},
+    )
+    try:
+        with urllib.request.urlopen(request_obj, timeout=5) as response:
+            payload = json.load(response)
+            status = response.status
+    except urllib.error.HTTPError as exc:
+        return jsonify({"status": exc.code, "error": str(exc)}), exc.code
+    except urllib.error.URLError as exc:
+        return jsonify({"status": 500, "error": str(exc)}), 500
+    thumbnail = payload.get("thumbnail", {})
+    image_url = thumbnail.get("source")
+    if image_url and image_url.startswith("http://"):
+        image_url = image_url.replace("http://", "https://", 1)
+    return jsonify({"status": status, "image_url": image_url, "title": title})
 
 
 @app.route("/api/debug/search-test", methods=["GET"])

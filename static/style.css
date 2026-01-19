@@ -93,6 +93,38 @@ header p {
   min-width: 140px;
 }
 
+.filter-autocomplete {
+  position: relative;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.filter-results {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
+  display: grid;
+  z-index: 5;
+}
+
+.filter-results .result {
+  border: none;
+  background: #ffffff;
+  color: #111111;
+  padding: 0.45rem 0.6rem;
+  text-align: left;
+  font-size: 0.75rem;
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+
+.filter-results .result:hover {
+  background: #f2f2ef;
+}
+
 .filter-actions {
   display: flex;
   gap: 0.5rem;
@@ -291,7 +323,7 @@ button:hover {
   margin-top: 0;
 }
 
-.map {
+.links {
   margin: 0.5rem 0 0;
   font-size: 0.78rem;
   display: flex;
@@ -300,13 +332,13 @@ button:hover {
   align-items: center;
 }
 
-.map a {
+.links a {
   color: #111111;
   text-decoration: none;
   border-bottom: 1px solid #111111;
 }
 
-.map .label {
+.links .label {
   color: #6a6a6a;
 }
 
@@ -365,9 +397,15 @@ button:hover {
   line-height: 1.4;
 }
 
+.map-popup .popup-links {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.35rem;
+}
+
 .map-popup a {
   display: inline-block;
-  margin-top: 0.35rem;
   font-size: 0.7rem;
   color: #111111;
   text-decoration: none;

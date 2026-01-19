@@ -84,6 +84,13 @@
             To
             <input type="date" id="filter-to" />
           </label>
+          <label>
+            Bird
+            <div class="filter-autocomplete">
+              <input type="text" id="filter-bird" placeholder="Any bird" />
+              <div class="filter-results" id="filter-bird-results" hidden></div>
+            </div>
+          </label>
           <div class="filter-actions">
             <button type="button" id="filter-apply">Apply</button>
             <button type="button" id="filter-clear">Clear</button>
@@ -118,8 +125,8 @@
                     {% if sighting['notes'] %}
                       <p class="notes">{{ sighting['notes'] }}</p>
                     {% endif %}
-                    {% if sighting['lat'] and sighting['lng'] %}
-                      <p class="map">
+                    <p class="links">
+                      {% if sighting['lat'] and sighting['lng'] %}
                         <a
                           href="https://www.google.com/maps?q={{ sighting['lat'] }},{{ sighting['lng'] }}"
                           target="_blank"
@@ -130,8 +137,18 @@
                         {% if sighting['location_label'] %}
                           <span class="label">{{ sighting['location_label'] }}</span>
                         {% endif %}
-                      </p>
-                    {% endif %}
+                      {% endif %}
+                      {% if sighting['wikipedia_title'] or sighting['common_name_uk'] or sighting['scientific_name'] %}
+                        {% set wiki_title = sighting['wikipedia_title'] or sighting['common_name_uk'] or sighting['scientific_name'] %}
+                        <a
+                          href="https://en.wikipedia.org/wiki/{{ wiki_title | urlencode }}"
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Wikipedia
+                        </a>
+                      {% endif %}
+                    </p>
                   </div>
                   {% if sighting['bird_id'] %}
                     {% if sighting['image_url'] %}
@@ -140,6 +157,7 @@
                         src="{{ sighting['image_url'] }}"
                         alt="{{ sighting['common_name_uk'] }}"
                         loading="lazy"
+                        onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'bird-placeholder'}))"
                       />
                     {% else %}
                       <div class="bird-placeholder" aria-hidden="true"></div>
@@ -164,6 +182,13 @@
           <label>
             To
             <input type="date" id="map-to" />
+          </label>
+          <label>
+            Bird
+            <div class="filter-autocomplete">
+              <input type="text" id="map-bird" placeholder="Any bird" />
+              <div class="filter-results" id="map-bird-results" hidden></div>
+            </div>
           </label>
           <div class="filter-actions">
             <button type="button" id="map-apply">Apply</button>
@@ -222,14 +247,26 @@
           const option = document.createElement("button");
           option.type = "button";
           option.className = "result";
-          const thumbnail = item.image_url
-            ? `<img src="${item.image_url}" alt="" loading="lazy" />`
-            : `<span class="result-placeholder" aria-hidden="true"></span>`;
           option.innerHTML = `
-            ${thumbnail}
+            <span class="result-placeholder" aria-hidden="true"></span>
             <span>${item.common_name_uk}</span>
             <span>${item.scientific_name || ""}</span>
           `;
+          if (item.image_url) {
+            const image = document.createElement("img");
+            image.src = item.image_url;
+            image.alt = "";
+            image.loading = "lazy";
+            image.addEventListener("error", () => {
+              console.warn("Image failed", item.image_url);
+              image.replaceWith(
+                Object.assign(document.createElement("span"), {
+                  className: "result-placeholder",
+                })
+              );
+            });
+            option.replaceChild(image, option.firstElementChild);
+          }
           option.addEventListener("click", () => {
             birdInput.value = item.common_name_uk;
             birdIdInput.value = item.id;
@@ -347,13 +384,19 @@
         const to = params.get("to") || "";
         const filterFrom = document.getElementById("filter-from");
         const filterTo = document.getElementById("filter-to");
+        const filterBird = document.getElementById("filter-bird");
         const mapFrom = document.getElementById("map-from");
         const mapTo = document.getElementById("map-to");
+        const mapBird = document.getElementById("map-bird");
         if (filterFrom) {
           filterFrom.value = from;
         }
         if (filterTo) {
           filterTo.value = to;
+        }
+        if (filterBird) {
+          filterBird.value = params.get("bird_name") || "";
+          filterBird.dataset.birdId = params.get("bird_id") || "";
         }
         if (mapFrom) {
           mapFrom.value = from;
@@ -361,9 +404,13 @@
         if (mapTo) {
           mapTo.value = to;
         }
+        if (mapBird) {
+          mapBird.value = params.get("bird_name") || "";
+          mapBird.dataset.birdId = params.get("bird_id") || "";
+        }
       };
 
-      const updateUrlFilters = (fromValue, toValue) => {
+      const updateUrlFilters = (fromValue, toValue, birdIdValue, birdNameValue) => {
         const params = new URLSearchParams(window.location.search);
         if (fromValue) {
           params.set("from", fromValue);
@@ -374,6 +421,13 @@
           params.set("to", toValue);
         } else {
           params.delete("to");
+        }
+        if (birdIdValue) {
+          params.set("bird_id", birdIdValue);
+          params.set("bird_name", birdNameValue || "");
+        } else {
+          params.delete("bird_id");
+          params.delete("bird_name");
         }
         const newUrl = `${window.location.pathname}?${params.toString()}`;
         window.history.replaceState({}, "", newUrl);
@@ -411,15 +465,33 @@
                 ${item.description ? `<p class="description">${item.description}</p>` : ""}
                 ${item.behavior ? `<p class="behavior">${item.behavior}</p>` : ""}
                 ${item.notes ? `<p class="notes">${item.notes}</p>` : ""}
-                ${
-                  item.google_maps_url
-                    ? `<p class="map"><a href="${item.google_maps_url}" target="_blank" rel="noreferrer">Open in Google Maps</a></p>`
-                    : ""
-                }
+                <p class="links">
+                  ${
+                    item.google_maps_url
+                      ? `<a href="${item.google_maps_url}" target="_blank" rel="noreferrer">Open in Google Maps</a>`
+                      : ""
+                  }
+                  ${
+                    item.wiki_url
+                      ? `<a href="${item.wiki_url}" target="_blank" rel="noreferrer">Wikipedia</a>`
+                      : ""
+                  }
+                </p>
               </div>
               ${thumbnail}
             </div>
           `;
+          const image = card.querySelector("img");
+          if (image) {
+            image.addEventListener("error", () => {
+              console.warn("Image failed", image.src);
+              image.replaceWith(
+                Object.assign(document.createElement("div"), {
+                  className: "bird-placeholder",
+                })
+              );
+            });
+          }
           list.appendChild(card);
         });
       };
@@ -427,7 +499,12 @@
       const fetchRecent = async () => {
         const filterFrom = document.getElementById("filter-from");
         const filterTo = document.getElementById("filter-to");
-        const query = buildParams(filterFrom, filterTo);
+        const filterBird = document.getElementById("filter-bird");
+        const extra = {};
+        if (filterBird?.dataset.birdId) {
+          extra.bird_id = filterBird.dataset.birdId;
+        }
+        const query = buildParams(filterFrom, filterTo, extra);
         const response = await fetch(`/api/sightings?${query}`);
         if (!response.ok) {
           return;
@@ -442,14 +519,22 @@
         filterApply.addEventListener("click", () => {
           const filterFrom = document.getElementById("filter-from");
           const filterTo = document.getElementById("filter-to");
-          updateUrlFilters(filterFrom.value, filterTo.value);
+          const filterBird = document.getElementById("filter-bird");
+          updateUrlFilters(
+            filterFrom.value,
+            filterTo.value,
+            filterBird.dataset.birdId || "",
+            filterBird.value
+          );
           fetchRecent();
           refreshMapMarkers();
         });
         filterClear.addEventListener("click", () => {
           document.getElementById("filter-from").value = "";
           document.getElementById("filter-to").value = "";
-          updateUrlFilters("", "");
+          document.getElementById("filter-bird").value = "";
+          document.getElementById("filter-bird").dataset.birdId = "";
+          updateUrlFilters("", "", "", "");
           fetchRecent();
           refreshMapMarkers();
         });
@@ -461,14 +546,22 @@
         mapApply.addEventListener("click", () => {
           const mapFrom = document.getElementById("map-from");
           const mapTo = document.getElementById("map-to");
-          updateUrlFilters(mapFrom.value, mapTo.value);
+          const mapBird = document.getElementById("map-bird");
+          updateUrlFilters(
+            mapFrom.value,
+            mapTo.value,
+            mapBird.dataset.birdId || "",
+            mapBird.value
+          );
           fetchRecent();
           refreshMapMarkers();
         });
         mapClear.addEventListener("click", () => {
           document.getElementById("map-from").value = "";
           document.getElementById("map-to").value = "";
-          updateUrlFilters("", "");
+          document.getElementById("map-bird").value = "";
+          document.getElementById("map-bird").dataset.birdId = "";
+          updateUrlFilters("", "", "", "");
           fetchRecent();
           refreshMapMarkers();
         });
@@ -485,7 +578,12 @@
         }
         const mapFrom = document.getElementById("map-from");
         const mapTo = document.getElementById("map-to");
-        const query = buildParams(mapFrom, mapTo, { only_geocoded: "1" });
+        const mapBird = document.getElementById("map-bird");
+        const extra = { only_geocoded: "1" };
+        if (mapBird?.dataset.birdId) {
+          extra.bird_id = mapBird.dataset.birdId;
+        }
+        const query = buildParams(mapFrom, mapTo, extra);
         const response = await fetch(`/api/sightings?${query}`);
         if (!response.ok) {
           return;
@@ -500,31 +598,107 @@
             .filter(Boolean)
             .join(" · ");
           const truncated = details.length > 140 ? `${details.slice(0, 140)}…` : details;
-          marker.bindPopup(
-            `
-              <div class="map-popup">
-                ${thumbnail}
-                <div>
-                  <div class="popup-title">${sighting.common_name_uk || "Unknown bird"}</div>
-                  ${
-                    sighting.scientific_name
-                      ? `<div class="popup-latin">${sighting.scientific_name}</div>`
-                      : ""
-                  }
-                  <div class="popup-date">${sighting.created_at}</div>
-                  ${truncated ? `<div class="popup-notes">${truncated}</div>` : ""}
+          const popupHtml = `
+            <div class="map-popup">
+              ${thumbnail}
+              <div>
+                <div class="popup-title">${sighting.common_name_uk || "Unknown bird"}</div>
+                ${
+                  sighting.scientific_name
+                    ? `<div class="popup-latin">${sighting.scientific_name}</div>`
+                    : ""
+                }
+                <div class="popup-date">${sighting.created_at}</div>
+                ${truncated ? `<div class="popup-notes">${truncated}</div>` : ""}
+                <div class="popup-links">
                   ${
                     sighting.google_maps_url
                       ? `<a href="${sighting.google_maps_url}" target="_blank" rel="noreferrer">Open in Google Maps</a>`
                       : ""
                   }
+                  ${
+                    sighting.wiki_url
+                      ? `<a href="${sighting.wiki_url}" target="_blank" rel="noreferrer">Wikipedia</a>`
+                      : ""
+                  }
                 </div>
               </div>
-            `
-          );
+            </div>
+          `;
+          marker.bindPopup(popupHtml);
+          marker.on("popupopen", (event) => {
+            const img = event.popup.getElement()?.querySelector("img");
+            if (img) {
+              img.addEventListener("error", () => {
+                console.warn("Image failed", img.src);
+                img.replaceWith(
+                  Object.assign(document.createElement("span"), {
+                    className: "popup-placeholder",
+                  })
+                );
+              });
+            }
+          });
           marker.addTo(markerLayer);
         });
       };
+
+      const attachBirdFilter = (inputId, resultsId) => {
+        const input = document.getElementById(inputId);
+        const results = document.getElementById(resultsId);
+        if (!input || !results) {
+          return;
+        }
+
+        const clearResults = () => {
+          results.innerHTML = "";
+          results.hidden = true;
+        };
+
+        input.addEventListener("input", async () => {
+          input.dataset.birdId = "";
+          const value = input.value.trim();
+          if (value.length < 2) {
+            clearResults();
+            return;
+          }
+          const response = await fetch(`/api/birds?q=${encodeURIComponent(value)}`);
+          if (!response.ok) {
+            clearResults();
+            return;
+          }
+          const items = await response.json();
+          results.innerHTML = "";
+          if (!items.length) {
+            clearResults();
+            return;
+          }
+          items.forEach((item) => {
+            const option = document.createElement("button");
+            option.type = "button";
+            option.className = "result";
+            option.textContent = `${item.common_name_uk}${
+              item.scientific_name ? ` — ${item.scientific_name}` : ""
+            }`;
+            option.addEventListener("click", () => {
+              input.value = item.common_name_uk;
+              input.dataset.birdId = item.id;
+              clearResults();
+            });
+            results.appendChild(option);
+          });
+          results.hidden = false;
+        });
+
+        document.addEventListener("click", (event) => {
+          if (!results.contains(event.target) && event.target !== input) {
+            clearResults();
+          }
+        });
+      };
+
+      attachBirdFilter("filter-bird", "filter-bird-results");
+      attachBirdFilter("map-bird", "map-bird-results");
 
       const initMap = async () => {
         const mapElement = document.getElementById("map");

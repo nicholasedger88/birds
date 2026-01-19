@@ -13,9 +13,9 @@ BIRDS: list[dict[str, str]] = [
         "wikipedia_title": "Common blackbird",
     },
     {
-        "common_name_uk": "Robin",
+        "common_name_uk": "European Robin",
         "scientific_name": "Erithacus rubecula",
-        "aliases": "European Robin",
+        "aliases": "Robin",
         "wikipedia_title": "European robin",
     },
     {"common_name_uk": "Blue Tit", "scientific_name": "Cyanistes caeruleus"},
@@ -100,65 +100,51 @@ def ensure_table(connection: sqlite3.Connection) -> None:
             scientific_name TEXT,
             aliases TEXT,
             wikipedia_title TEXT,
-            image_url TEXT
+            image_url TEXT,
+            UNIQUE(common_name_uk, scientific_name)
         )
+        """
+    )
+    connection.execute(
+        """
+        CREATE UNIQUE INDEX IF NOT EXISTS birds_unique_name
+        ON birds (common_name_uk, scientific_name)
         """
     )
 
 
-def find_existing(
-    connection: sqlite3.Connection, common_name_uk: str, scientific_name: str | None
-) -> sqlite3.Row | None:
-    return connection.execute(
-        """
-        SELECT id FROM birds
-        WHERE common_name_uk = ? AND scientific_name IS ?
-        """,
-        (common_name_uk, scientific_name),
-    ).fetchone()
-
-
 def seed_birds(db_path: str | None = None, birds: Iterable[dict[str, str]] = BIRDS) -> int:
-    count = 0
     with get_connection(db_path) as connection:
         ensure_table(connection)
+        connection.execute(
+            """
+            DELETE FROM birds
+            WHERE common_name_uk = 'Robin' AND scientific_name = 'Erithacus rubecula'
+            """
+        )
         for bird in birds:
-            common_name_uk = bird["common_name_uk"]
-            scientific_name = bird.get("scientific_name")
-            existing = find_existing(connection, common_name_uk, scientific_name)
-            if existing:
-                connection.execute(
-                    """
-                    UPDATE birds
-                    SET aliases = ?, wikipedia_title = ?, image_url = ?
-                    WHERE id = ?
-                    """,
-                    (
-                        bird.get("aliases"),
-                        bird.get("wikipedia_title"),
-                        bird.get("image_url"),
-                        existing["id"],
-                    ),
+            connection.execute(
+                """
+                INSERT INTO birds (
+                    common_name_uk,
+                    scientific_name,
+                    aliases,
+                    wikipedia_title,
+                    image_url
                 )
-            else:
-                connection.execute(
-                    """
-                    INSERT INTO birds (
-                        common_name_uk,
-                        scientific_name,
-                        aliases,
-                        wikipedia_title,
-                        image_url
-                    )
-                    VALUES (?, ?, ?, ?, ?)
-                    """,
-                    (
-                        common_name_uk,
-                        scientific_name,
-                        bird.get("aliases"),
-                        bird.get("wikipedia_title"),
-                        bird.get("image_url"),
-                    ),
-                )
-            count += 1
-    return count
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(common_name_uk, scientific_name) DO UPDATE SET
+                    aliases = excluded.aliases,
+                    wikipedia_title = excluded.wikipedia_title,
+                    image_url = excluded.image_url
+                """,
+                (
+                    bird["common_name_uk"],
+                    bird.get("scientific_name"),
+                    bird.get("aliases"),
+                    bird.get("wikipedia_title"),
+                    bird.get("image_url"),
+                ),
+            )
+        birds_count = connection.execute("SELECT COUNT(*) FROM birds").fetchone()[0]
+    return birds_count

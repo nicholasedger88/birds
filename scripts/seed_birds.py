@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from app import app
 from birds_seed import seed_birds
-from db import DB_PATH
 
 
 if __name__ == "__main__":
-    count = seed_birds(DB_PATH)
-    print(f"Seeded {count} UK birds into {DB_PATH}.")
+    db_path = app.config["DATABASE"]
+    print(f"Using database: {db_path}")
+    count = seed_birds(db_path)
+    print(f"Birds in table after seed: {count}")

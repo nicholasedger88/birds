@@ -29,3 +29,5 @@ Then open `http://localhost:8000` in your browser.
 - Autocomplete suggestions come from the bundled UK bird list.
 - Verify autocomplete by typing at least 2 characters in the bird field or visiting
   `http://localhost:8000/api/birds?q=rob`.
+- Debug database state at `http://localhost:8000/api/debug/db-info`.
+- Smoke-test search results at `http://localhost:8000/api/debug/search-test`.

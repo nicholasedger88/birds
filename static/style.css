@@ -37,6 +37,45 @@ header p {
   color: #3f3f3f;
 }
 
+.segmented {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.segment {
+  border: 1px solid #111111;
+  background: transparent;
+  color: #111111;
+  padding: 0.35rem 0.85rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.segment.active {
+  background: #111111;
+  color: #fdfcf9;
+}
+
+.view {
+  opacity: 0;
+  transform: translateY(6px);
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  height: 0;
+  overflow: hidden;
+}
+
+.view.is-active {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+  height: auto;
+  overflow: visible;
+}
+
 .panel {
   padding: 1.5rem;
   background-color: #fdfcf9;
@@ -247,6 +286,11 @@ button:hover {
   background: #f2f2ef;
 }
 
+.map-canvas {
+  height: 360px;
+  background: #f2f2ef;
+}
+
 .empty {
   margin: 0;
   font-style: italic;
@@ -256,5 +300,9 @@ button:hover {
 @media (max-width: 640px) {
   body {
     padding: 1.5rem 1.25rem 2.5rem;
+  }
+
+  .map-canvas {
+    height: 280px;
   }
 }

@@ -14,10 +14,12 @@ from birds_seed import seed_birds
 from db import DB_PATH
 
 app = Flask(__name__)
+app.config["DATABASE"] = DB_PATH
+print(f"Using database: {DB_PATH}")
 
 
 def get_connection() -> sqlite3.Connection:
-    connection = sqlite3.connect(DB_PATH)
+    connection = sqlite3.connect(app.config["DATABASE"])
     connection.row_factory = sqlite3.Row
     return connection
 
@@ -53,8 +55,15 @@ def init_db() -> None:
                 scientific_name TEXT,
                 aliases TEXT,
                 wikipedia_title TEXT,
-                image_url TEXT
+                image_url TEXT,
+                UNIQUE(common_name_uk, scientific_name)
             )
+            """
+        )
+        connection.execute(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS birds_unique_name
+            ON birds (common_name_uk, scientific_name)
             """
         )
         bird_columns = {
@@ -139,10 +148,46 @@ def bird_profile_for_name(name: str) -> dict[str, str]:
     return {}
 
 
-def match_score(query: str, candidate: str) -> tuple[int, int]:
-    if candidate.startswith(query):
-        return (0, 0)
-    return (1, candidate.find(query))
+def normalized_sql(column: str) -> str:
+    return (
+        "lower(replace(replace(replace(replace(replace("
+        f"coalesce({column}, ''), '.', ' '), ',', ' '), '-', ' '), '''', ''), '’', ' '))"
+    )
+
+
+def search_birds_query(connection: sqlite3.Connection, query: str) -> list[sqlite3.Row]:
+    normalized_query = normalize_text(query)
+    if not normalized_query:
+        return []
+    prefix = f"{normalized_query}%"
+    substring = f"%{normalized_query}%"
+    common_expr = normalized_sql("common_name_uk")
+    aliases_expr = normalized_sql("aliases")
+    return connection.execute(
+        f"""
+        SELECT
+            id,
+            common_name_uk,
+            scientific_name,
+            aliases,
+            wikipedia_title,
+            image_url
+        FROM birds
+        WHERE
+            {common_expr} LIKE :prefix
+            OR {common_expr} LIKE :substring
+            OR {aliases_expr} LIKE :substring
+        ORDER BY
+            CASE
+                WHEN {common_expr} LIKE :prefix THEN 1
+                WHEN {common_expr} LIKE :substring THEN 2
+                ELSE 3
+            END,
+            common_name_uk
+        LIMIT 10
+        """,
+        {"prefix": prefix, "substring": substring},
+    ).fetchall()
 
 
 def fetch_wikipedia_thumbnail(title: str) -> str | None:
@@ -203,41 +248,10 @@ def fetch_sightings() -> Iterable[sqlite3.Row]:
 
 @app.route("/api/birds", methods=["GET"])
 def search_birds():
-    query = normalize_text(request.args.get("q", ""))
-    if not query:
-        return jsonify([])
-
     with get_connection() as connection:
-        rows = connection.execute(
-            """
-            SELECT
-                id,
-                common_name_uk,
-                scientific_name,
-                aliases,
-                wikipedia_title,
-                image_url
-            FROM birds
-            """
-        ).fetchall()
-
-        matches: list[tuple[tuple[int, int], sqlite3.Row]] = []
-        for row in rows:
-            values = [row["common_name_uk"]]
-            if row["aliases"]:
-                values.extend(alias.strip() for alias in row["aliases"].split(","))
-            normalized_values = [normalize_text(value) for value in values if value]
-            scores = [
-                match_score(query, value)
-                for value in normalized_values
-                if query in value
-            ]
-            if scores:
-                matches.append((min(scores), row))
-
-        matches.sort(key=lambda item: item[0])
+        rows = search_birds_query(connection, request.args.get("q", ""))
         response = []
-        for _, row in matches[:10]:
+        for row in rows:
             image_url = resolve_bird_thumbnail(connection, row)
             response.append(
                 {
@@ -248,6 +262,85 @@ def search_birds():
                 }
             )
     return jsonify(response)
+
+
+@app.route("/api/sightings", methods=["GET"])
+def sightings_api():
+    with get_connection() as connection:
+        rows = connection.execute(
+            """
+            SELECT
+                sightings.id,
+                COALESCE(birds.common_name_uk, sightings.bird_text, sightings.bird_name)
+                    AS display_name,
+                birds.scientific_name,
+                COALESCE(sightings.lat, sightings.latitude) AS lat,
+                COALESCE(sightings.lng, sightings.longitude) AS lng,
+                sightings.spotted_at
+            FROM sightings
+            LEFT JOIN birds ON birds.id = sightings.bird_id
+            WHERE COALESCE(sightings.lat, sightings.latitude) IS NOT NULL
+              AND COALESCE(sightings.lng, sightings.longitude) IS NOT NULL
+            ORDER BY sightings.spotted_at DESC, sightings.id DESC
+            """
+        ).fetchall()
+    return jsonify(
+        [
+            {
+                "id": row["id"],
+                "display_name": row["display_name"],
+                "scientific_name": row["scientific_name"],
+                "lat": row["lat"],
+                "lng": row["lng"],
+                "spotted_at": row["spotted_at"],
+            }
+            for row in rows
+        ]
+    )
+
+
+@app.route("/api/debug/db-info", methods=["GET"])
+def debug_db_info():
+    with get_connection() as connection:
+        tables = [
+            row["name"]
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name"
+            ).fetchall()
+        ]
+        birds_count = connection.execute("SELECT COUNT(*) FROM birds").fetchone()[0]
+    return jsonify(
+        {
+            "database_path": str(app.config["DATABASE"]),
+            "tables": tables,
+            "birds_count": birds_count,
+        }
+    )
+
+
+@app.route("/api/debug/search-test", methods=["GET"])
+def debug_search_test():
+    with get_connection() as connection:
+        return jsonify(
+            {
+                "rob": [
+                    {
+                        "id": row["id"],
+                        "common_name_uk": row["common_name_uk"],
+                        "scientific_name": row["scientific_name"],
+                    }
+                    for row in search_birds_query(connection, "rob")
+                ],
+                "blackbird": [
+                    {
+                        "id": row["id"],
+                        "common_name_uk": row["common_name_uk"],
+                        "scientific_name": row["scientific_name"],
+                    }
+                    for row in search_birds_query(connection, "blackbird")
+                ],
+            }
+        )
 
 
 @app.route("/", methods=["GET"])
@@ -311,8 +404,9 @@ def create_sighting():
 
 @app.cli.command("seed-birds")
 def seed_birds_command() -> None:
-    count = seed_birds(DB_PATH)
-    print(f"Seeded {count} UK birds into {DB_PATH}.")
+    print(f"Using database: {app.config['DATABASE']}")
+    count = seed_birds(app.config["DATABASE"])
+    print(f"Birds in table after seed: {count}")
 
 
 if __name__ == "__main__":

@@ -26,79 +26,22 @@
               required
             />
             <datalist id="bird-suggestions">
-              <option
-                value="Northern Cardinal"
-                data-latin="Cardinalis cardinalis"
-                data-description="A vivid red songbird with a crest and stout bill."
-                data-behavior="Often seen at feeders, singing from high perches."
-              ></option>
-              <option
-                value="American Robin"
-                data-latin="Turdus migratorius"
-                data-description="A gray-brown thrush with a warm orange breast."
-                data-behavior="Runs across lawns searching for worms and insects."
-              ></option>
-              <option
-                value="Blue Jay"
-                data-latin="Cyanocitta cristata"
-                data-description="A blue-and-white corvid with a bold crest."
-                data-behavior="Noisy flocks, mimics calls, caches acorns."
-              ></option>
-              <option
-                value="Barn Swallow"
-                data-latin="Hirundo rustica"
-                data-description="Streamlined swallow with a forked tail and blue back."
-                data-behavior="Skims over water catching insects in flight."
-              ></option>
-              <option
-                value="Great Egret"
-                data-latin="Ardea alba"
-                data-description="Tall white heron with elegant plume-like feathers."
-                data-behavior="Stalks shallow water, spearing fish with patience."
-              ></option>
+              <option value="Northern Cardinal"></option>
+              <option value="American Robin"></option>
+              <option value="Blue Jay"></option>
+              <option value="Barn Swallow"></option>
+              <option value="Great Egret"></option>
             </datalist>
           </label>
           <label>
-            Latin name
-            <input type="text" name="latin_name" placeholder="Cardinalis cardinalis" />
-          </label>
-          <label>
-            Description
-            <textarea
-              name="description"
-              rows="2"
-              placeholder="Colors, markings, or shape"
-            ></textarea>
-          </label>
-          <label>
-            Typical behavior
-            <textarea
-              name="behavior"
-              rows="2"
-              placeholder="Feeding, flight style, calls"
-            ></textarea>
-          </label>
-          <label>
             Location
-            <div class="location-row">
-              <input
-                type="text"
-                name="location"
-                id="location-field"
-                placeholder="Use current location"
-                readonly
-              />
-              <button type="button" id="geo-button">Use my location</button>
-            </div>
+            <input type="text" name="location" placeholder="Lakefront trail" required />
           </label>
-          <input type="hidden" name="latitude" id="latitude-field" />
-          <input type="hidden" name="longitude" id="longitude-field" />
           <label>
             Notes (optional)
             <textarea name="notes" rows="3" placeholder="Behavior, weather, or details"></textarea>
           </label>
           <button type="submit">Add sighting</button>
-          <p class="helper" id="geo-status">Location uses your browser's GPS when available.</p>
         </form>
       </section>
 
@@ -119,19 +62,6 @@
                   <span class="time">{{ sighting['spotted_at'] }}</span>
                 </div>
                 <div class="sighting-details">
-                  <div class="sketch" aria-hidden="true">
-                    <svg viewBox="0 0 120 60" role="img">
-                      <path
-                        d="M10 40 C25 20, 45 15, 60 25 C70 5, 95 10, 105 30 C90 25, 80 40, 65 45 C50 50, 30 50, 10 40 Z"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      />
-                      <circle cx="72" cy="26" r="2" fill="currentColor" />
-                    </svg>
-                  </div>
                   <div class="text">
                     {% if sighting['description'] %}
                       <p class="description">{{ sighting['description'] }}</p>
@@ -141,16 +71,6 @@
                     {% endif %}
                     {% if sighting['notes'] %}
                       <p class="notes">{{ sighting['notes'] }}</p>
-                    {% endif %}
-                    {% if sighting['latitude'] and sighting['longitude'] %}
-                      <a
-                        class="map-link"
-                        href="https://maps.google.com/?q={{ sighting['latitude'] }},{{ sighting['longitude'] }}"
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        Open in Google Maps
-                      </a>
                     {% endif %}
                   </div>
                 </div>
@@ -162,51 +82,5 @@
         {% endif %}
       </section>
     </main>
-    <script>
-      const birdInput = document.querySelector("input[name='bird_name']");
-      const latinInput = document.querySelector("input[name='latin_name']");
-      const descriptionInput = document.querySelector("textarea[name='description']");
-      const behaviorInput = document.querySelector("textarea[name='behavior']");
-      const datalist = document.getElementById("bird-suggestions");
-
-      birdInput.addEventListener("change", () => {
-        const option = Array.from(datalist.options).find(
-          (item) => item.value.toLowerCase() === birdInput.value.toLowerCase()
-        );
-        if (!option) {
-          return;
-        }
-        latinInput.value = option.dataset.latin || latinInput.value;
-        descriptionInput.value = option.dataset.description || descriptionInput.value;
-        behaviorInput.value = option.dataset.behavior || behaviorInput.value;
-      });
-
-      const geoButton = document.getElementById("geo-button");
-      const geoStatus = document.getElementById("geo-status");
-      const locationField = document.getElementById("location-field");
-      const latitudeField = document.getElementById("latitude-field");
-      const longitudeField = document.getElementById("longitude-field");
-
-      geoButton.addEventListener("click", () => {
-        if (!navigator.geolocation) {
-          geoStatus.textContent = "Geolocation is not supported in this browser.";
-          return;
-        }
-        geoStatus.textContent = "Finding your location...";
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const { latitude, longitude } = position.coords;
-            latitudeField.value = latitude.toFixed(6);
-            longitudeField.value = longitude.toFixed(6);
-            locationField.value = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
-            geoStatus.textContent = "Location captured.";
-          },
-          () => {
-            geoStatus.textContent =
-              "Unable to access location. Check browser permissions.";
-          }
-        );
-      });
-    </script>
   </body>
 </html>

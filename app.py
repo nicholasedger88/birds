@@ -26,8 +26,6 @@ def init_db() -> None:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 bird_name TEXT NOT NULL,
                 location TEXT NOT NULL,
-                latitude REAL,
-                longitude REAL,
                 latin_name TEXT,
                 description TEXT,
                 behavior TEXT,
@@ -41,8 +39,6 @@ def init_db() -> None:
             for row in connection.execute("PRAGMA table_info(sightings)").fetchall()
         }
         optional_columns = {
-            "latitude": "REAL",
-            "longitude": "REAL",
             "latin_name": "TEXT",
             "description": "TEXT",
             "behavior": "TEXT",
@@ -56,6 +52,42 @@ def init_db() -> None:
 
 init_db()
 
+BIRD_PROFILES = {
+    "Northern Cardinal": {
+        "latin_name": "Cardinalis cardinalis",
+        "description": "A vivid red songbird with a crest and stout bill.",
+        "behavior": "Often seen at feeders, singing from high perches.",
+    },
+    "American Robin": {
+        "latin_name": "Turdus migratorius",
+        "description": "A gray-brown thrush with a warm orange breast.",
+        "behavior": "Runs across lawns searching for worms and insects.",
+    },
+    "Blue Jay": {
+        "latin_name": "Cyanocitta cristata",
+        "description": "A blue-and-white corvid with a bold crest.",
+        "behavior": "Noisy flocks, mimics calls, caches acorns.",
+    },
+    "Barn Swallow": {
+        "latin_name": "Hirundo rustica",
+        "description": "Streamlined swallow with a forked tail and blue back.",
+        "behavior": "Skims over water catching insects in flight.",
+    },
+    "Great Egret": {
+        "latin_name": "Ardea alba",
+        "description": "Tall white heron with elegant plume-like feathers.",
+        "behavior": "Stalks shallow water, spearing fish with patience.",
+    },
+}
+
+
+def bird_profile_for_name(name: str) -> dict[str, str]:
+    normalized = name.casefold()
+    for bird_name, profile in BIRD_PROFILES.items():
+        if bird_name.casefold() == normalized:
+            return profile
+    return {}
+
 
 def fetch_sightings() -> Iterable[sqlite3.Row]:
     with get_connection() as connection:
@@ -65,8 +97,6 @@ def fetch_sightings() -> Iterable[sqlite3.Row]:
                 id,
                 bird_name,
                 location,
-                latitude,
-                longitude,
                 latin_name,
                 description,
                 behavior,
@@ -88,15 +118,12 @@ def index() -> str:
 def create_sighting():
     bird_name = request.form.get("bird_name", "").strip()
     location = request.form.get("location", "").strip()
-    latitude = request.form.get("latitude", "").strip() or None
-    longitude = request.form.get("longitude", "").strip() or None
-    latin_name = request.form.get("latin_name", "").strip()
-    description = request.form.get("description", "").strip()
-    behavior = request.form.get("behavior", "").strip()
     notes = request.form.get("notes", "").strip()
 
-    if not location and latitude and longitude:
-        location = f"{latitude}, {longitude}"
+    profile = bird_profile_for_name(bird_name)
+    latin_name = profile.get("latin_name")
+    description = profile.get("description")
+    behavior = profile.get("behavior")
 
     if bird_name and location:
         with get_connection() as connection:
@@ -105,23 +132,19 @@ def create_sighting():
                 INSERT INTO sightings (
                     bird_name,
                     location,
-                    latitude,
-                    longitude,
                     latin_name,
                     description,
                     behavior,
                     notes
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?)
                 """,
                 (
                     bird_name,
                     location,
-                    latitude,
-                    longitude,
-                    latin_name or None,
-                    description or None,
-                    behavior or None,
+                    latin_name,
+                    description,
+                    behavior,
                     notes or None,
                 ),
             )

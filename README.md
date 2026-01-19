@@ -16,5 +16,4 @@ Then open `http://localhost:8000` in your browser.
 ## Usage
 
 - Use the form to add a bird name, location, and optional notes.
-- The front page also lists your most recent sightings.
-- Click "Use my location" to capture coordinates (browser permission required).
+- The front page also lists your most recent sightings with descriptions and behavior.

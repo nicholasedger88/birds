@@ -1,0 +1,842 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Bird Log</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+  </head>
+  <body>
+    <div class="corner-bird" aria-hidden="true">
+      <svg viewBox="0 0 64 32">
+        <path class="wing" d="M6 22 Q20 10 32 18 Q44 10 58 22" />
+      </svg>
+    </div>
+    <main class="container">
+      <header>
+        <h1>Bird Log</h1>
+        <p>Track the birds you spot and where you spotted them.</p>
+      </header>
+
+      <nav class="segmented" aria-label="Bird log views">
+        <button class="segment active" type="button" data-view="log">Log</button>
+        <button class="segment" type="button" data-view="recent">Recent</button>
+        <button class="segment" type="button" data-view="map">Map</button>
+      </nav>
+
+      <section class="panel view is-active" data-view="log">
+        <h2>Log a new sighting</h2>
+        <form action="{{ url_for('create_sighting') }}" method="post">
+          <label>
+            Bird name
+            <div class="autocomplete">
+              <input
+                type="text"
+                name="bird_name"
+                id="bird-input"
+                placeholder="European Robin"
+                autocomplete="off"
+                required
+              />
+              <input type="hidden" name="bird_id" id="bird-id" />
+              <div class="autocomplete-list" id="bird-results" hidden></div>
+            </div>
+            <span class="helper">Type any species; pick from suggestions if available.</span>
+          </label>
+          <label>
+            Location
+            <div class="location-row">
+              <input
+                type="text"
+                name="location"
+                id="location-field"
+                placeholder="Lakefront trail"
+                required
+              />
+              <button type="button" id="geo-button">Use my location</button>
+              <button type="button" id="geo-clear">Clear</button>
+            </div>
+          </label>
+          <label>
+            Location label (optional)
+            <input type="text" name="location_label" placeholder="Sefton Park" />
+          </label>
+          <label>
+            Observer
+            <select name="observer">
+              <option value="Nicholas" selected>Nicholas</option>
+              <option value="Mark">Mark</option>
+              <option value="Andy">Andy</option>
+            </select>
+          </label>
+          <input type="hidden" name="lat" id="lat-field" />
+          <input type="hidden" name="lng" id="lng-field" />
+          <label>
+            Notes (optional)
+            <textarea name="notes" rows="3" placeholder="Behavior, weather, or details"></textarea>
+          </label>
+          <button type="submit">Add sighting</button>
+          <p class="helper" id="geo-status">Location uses your browser's GPS when available.</p>
+        </form>
+      </section>
+
+      <section class="panel view" data-view="recent">
+        <h2>Recent sightings</h2>
+        <div class="filters">
+          <label>
+            From
+            <input type="date" id="filter-from" />
+          </label>
+          <label>
+            To
+            <input type="date" id="filter-to" />
+          </label>
+          <label>
+            Bird
+            <div class="filter-autocomplete">
+              <input type="text" id="filter-bird" placeholder="Any bird" />
+              <div class="filter-results" id="filter-bird-results" hidden></div>
+            </div>
+          </label>
+          <label>
+            Observer
+            <select id="filter-observer">
+              <option value="">All</option>
+              <option value="Nicholas">Nicholas</option>
+              <option value="Mark">Mark</option>
+              <option value="Andy">Andy</option>
+            </select>
+          </label>
+          <div class="filter-actions">
+            <button type="button" id="filter-apply">Apply</button>
+            <button type="button" id="filter-clear">Clear</button>
+          </div>
+        </div>
+        {% if sightings %}
+          <ul class="sighting-list" id="recent-list">
+            {% for sighting in sightings %}
+              <li>
+                <div class="sighting-meta">
+                  <div>
+                    {% if sighting['bird_id'] %}
+                      <span class="bird">{{ sighting['common_name_uk'] }}</span>
+                      {% if sighting['scientific_name'] %}
+                        <span class="latin">{{ sighting['scientific_name'] }}</span>
+                      {% endif %}
+                    {% else %}
+                      <span class="bird">{{ sighting['bird_text'] or sighting['bird_name'] }}</span>
+                    {% endif %}
+                  </div>
+                  <span class="location">{{ sighting['location'] }}</span>
+                  <span class="time">{{ sighting['spotted_at'] }}</span>
+                  <span class="observer">{{ sighting['observer'] }}</span>
+                </div>
+                <div class="sighting-details">
+                  <div class="text">
+                    {% if sighting['description'] %}
+                      <p class="description">{{ sighting['description'] }}</p>
+                    {% endif %}
+                    {% if sighting['behavior'] %}
+                      <p class="behavior">{{ sighting['behavior'] }}</p>
+                    {% endif %}
+                    {% if sighting['notes'] %}
+                      <p class="notes">{{ sighting['notes'] }}</p>
+                    {% endif %}
+                    <p class="links">
+                      {% if sighting['lat'] and sighting['lng'] %}
+                        <a
+                          href="https://www.google.com/maps?q={{ sighting['lat'] }},{{ sighting['lng'] }}"
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          View on Google Maps
+                        </a>
+                        {% if sighting['location_label'] %}
+                          <span class="label">{{ sighting['location_label'] }}</span>
+                        {% endif %}
+                      {% endif %}
+                      {% if sighting['wikipedia_title'] or sighting['common_name_uk'] or sighting['scientific_name'] %}
+                        {% set wiki_title = sighting['wikipedia_title'] or sighting['common_name_uk'] or sighting['scientific_name'] %}
+                        <a
+                          href="https://en.wikipedia.org/wiki/{{ wiki_title | urlencode }}"
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Wikipedia
+                        </a>
+                      {% endif %}
+                    </p>
+                  </div>
+                  {% if sighting['bird_id'] %}
+                    {% if sighting['image_url'] %}
+                      <img
+                        class="bird-image"
+                        src="{{ sighting['image_url'] }}"
+                        alt="{{ sighting['common_name_uk'] }}"
+                        loading="lazy"
+                        onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'bird-placeholder'}))"
+                      />
+                    {% else %}
+                      <div class="bird-placeholder" aria-hidden="true"></div>
+                    {% endif %}
+                  {% endif %}
+                </div>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="empty">No sightings yet. Add one above to start your log.</p>
+        {% endif %}
+      </section>
+
+      <section class="panel view" data-view="map">
+        <h2>Map view</h2>
+        <div class="filters">
+          <label>
+            From
+            <input type="date" id="map-from" />
+          </label>
+          <label>
+            To
+            <input type="date" id="map-to" />
+          </label>
+          <label>
+            Bird
+            <div class="filter-autocomplete">
+              <input type="text" id="map-bird" placeholder="Any bird" />
+              <div class="filter-results" id="map-bird-results" hidden></div>
+            </div>
+          </label>
+          <label>
+            Observer
+            <select id="map-observer">
+              <option value="">All</option>
+              <option value="Nicholas">Nicholas</option>
+              <option value="Mark">Mark</option>
+              <option value="Andy">Andy</option>
+            </select>
+          </label>
+          <div class="filter-actions">
+            <button type="button" id="map-apply">Apply</button>
+            <button type="button" id="map-clear">Clear</button>
+          </div>
+        </div>
+        <div id="map" class="map-canvas" aria-label="Bird sightings map"></div>
+      </section>
+    </main>
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+    <script>
+      const views = document.querySelectorAll(".view");
+      const segments = document.querySelectorAll(".segment");
+      let mapInstance = null;
+      let mapInitialized = false;
+
+      const showView = (target) => {
+        views.forEach((view) => {
+          view.classList.toggle("is-active", view.dataset.view === target);
+        });
+        segments.forEach((segment) => {
+          segment.classList.toggle("active", segment.dataset.view === target);
+        });
+        if (target === "map" && !mapInitialized) {
+          initMap();
+          mapInitialized = true;
+        }
+      };
+
+      segments.forEach((segment) => {
+        segment.addEventListener("click", () => showView(segment.dataset.view));
+      });
+
+      const birdInput = document.getElementById("bird-input");
+      const birdIdInput = document.getElementById("bird-id");
+      const birdResults = document.getElementById("bird-results");
+      let activeIndex = -1;
+
+      const clearResults = () => {
+        birdResults.innerHTML = "";
+        birdResults.hidden = true;
+        activeIndex = -1;
+      };
+
+      const renderResults = (items) => {
+        birdResults.innerHTML = "";
+        if (!items.length) {
+          clearResults();
+          return;
+        }
+        items.forEach((item, index) => {
+          const option = document.createElement("button");
+          option.type = "button";
+          option.className = "result";
+          option.innerHTML = `
+            <span class="result-placeholder" aria-hidden="true"></span>
+            <span>${item.common_name_uk}</span>
+            <span>${item.scientific_name || ""}</span>
+          `;
+          if (item.image_url) {
+            const image = document.createElement("img");
+            image.src = item.image_url;
+            image.alt = "";
+            image.loading = "lazy";
+            image.addEventListener("error", () => {
+              console.warn("Image failed", item.image_url);
+              image.replaceWith(
+                Object.assign(document.createElement("span"), {
+                  className: "result-placeholder",
+                })
+              );
+            });
+            option.replaceChild(image, option.firstElementChild);
+          }
+          option.addEventListener("click", () => {
+            birdInput.value = item.common_name_uk;
+            birdIdInput.value = item.id;
+            clearResults();
+          });
+          if (index === activeIndex) {
+            option.classList.add("active");
+          }
+          birdResults.appendChild(option);
+        });
+        birdResults.hidden = false;
+      };
+
+      const fetchResults = async (value) => {
+        const response = await fetch(`/api/birds?q=${encodeURIComponent(value)}`);
+        if (!response.ok) {
+          clearResults();
+          return;
+        }
+        const data = await response.json();
+        renderResults(data);
+      };
+
+      birdInput.addEventListener("input", () => {
+        if (birdIdInput.value) {
+          birdIdInput.value = "";
+        }
+        const value = birdInput.value.trim();
+        if (value.length < 2) {
+          clearResults();
+          return;
+        }
+        fetchResults(value);
+      });
+
+      birdInput.addEventListener("keydown", (event) => {
+        const items = Array.from(birdResults.querySelectorAll(".result"));
+        if (!items.length) {
+          return;
+        }
+        if (event.key === "ArrowDown") {
+          event.preventDefault();
+          activeIndex = (activeIndex + 1) % items.length;
+          items.forEach((item, index) =>
+            item.classList.toggle("active", index === activeIndex)
+          );
+        }
+        if (event.key === "ArrowUp") {
+          event.preventDefault();
+          activeIndex = (activeIndex - 1 + items.length) % items.length;
+          items.forEach((item, index) =>
+            item.classList.toggle("active", index === activeIndex)
+          );
+        }
+        if (event.key === "Enter" && activeIndex >= 0) {
+          event.preventDefault();
+          items[activeIndex].click();
+        }
+      });
+
+      document.addEventListener("click", (event) => {
+        if (!birdResults.contains(event.target) && event.target !== birdInput) {
+          clearResults();
+        }
+      });
+
+      const geoButton = document.getElementById("geo-button");
+      const geoClear = document.getElementById("geo-clear");
+      const geoStatus = document.getElementById("geo-status");
+      const locationField = document.getElementById("location-field");
+      const latField = document.getElementById("lat-field");
+      const lngField = document.getElementById("lng-field");
+
+      geoButton.addEventListener("click", () => {
+        if (!navigator.geolocation) {
+          geoStatus.textContent = "Geolocation is not supported in this browser.";
+          return;
+        }
+        geoStatus.textContent = "Finding your location...";
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const { latitude, longitude } = position.coords;
+            latField.value = latitude.toFixed(6);
+            lngField.value = longitude.toFixed(6);
+            locationField.value = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+            geoStatus.textContent = "Location captured.";
+          },
+          () => {
+            geoStatus.textContent =
+              "Unable to access location. Check browser permissions.";
+          }
+        );
+      });
+
+      geoClear.addEventListener("click", () => {
+        latField.value = "";
+        lngField.value = "";
+        geoStatus.textContent = "Location cleared.";
+      });
+
+      const triggerFlap = () => {
+        const bird = document.querySelector(".corner-bird");
+        if (!bird) {
+          return;
+        }
+        bird.classList.remove("flap-once");
+        void bird.offsetWidth;
+        bird.classList.add("flap-once");
+        bird.addEventListener(
+          "animationend",
+          () => bird.classList.remove("flap-once"),
+          { once: true }
+        );
+      };
+
+      const scheduleBirdBurst = () => {
+        const bird = document.querySelector(".corner-bird");
+        if (!bird) {
+          return;
+        }
+        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+          return;
+        }
+        const isSmallScreen = window.matchMedia("(max-width: 640px)").matches;
+        const minDelay = isSmallScreen ? 9000 : 6000;
+        const maxDelay = isSmallScreen ? 16000 : 14000;
+        const delay =
+          Math.floor(Math.random() * (maxDelay - minDelay + 1)) + minDelay;
+        setTimeout(() => {
+          if (bird.classList.contains("is-bursting")) {
+            scheduleBirdBurst();
+            return;
+          }
+          bird.classList.add("is-bursting");
+          bird.addEventListener(
+            "animationend",
+            () => bird.classList.remove("is-bursting"),
+            { once: true }
+          );
+          scheduleBirdBurst();
+        }, delay);
+      };
+
+      const sightingForm = document.querySelector("form[action='{{ url_for('create_sighting') }}']");
+      if (sightingForm) {
+        sightingForm.addEventListener("submit", () => {
+          setTimeout(triggerFlap, 300);
+        });
+      }
+      scheduleBirdBurst();
+
+      const buildParams = (fromInput, toInput, extra = {}) => {
+        const params = new URLSearchParams(extra);
+        if (fromInput?.value) {
+          params.set("from", fromInput.value);
+        }
+        if (toInput?.value) {
+          params.set("to", toInput.value);
+        }
+        return params.toString();
+      };
+
+      const syncFiltersFromUrl = () => {
+        const params = new URLSearchParams(window.location.search);
+        const from = params.get("from") || "";
+        const to = params.get("to") || "";
+        const observer = params.get("observer") || "";
+        const filterFrom = document.getElementById("filter-from");
+        const filterTo = document.getElementById("filter-to");
+        const filterBird = document.getElementById("filter-bird");
+        const filterObserver = document.getElementById("filter-observer");
+        const mapFrom = document.getElementById("map-from");
+        const mapTo = document.getElementById("map-to");
+        const mapBird = document.getElementById("map-bird");
+        const mapObserver = document.getElementById("map-observer");
+        if (filterFrom) {
+          filterFrom.value = from;
+        }
+        if (filterTo) {
+          filterTo.value = to;
+        }
+        if (filterBird) {
+          filterBird.value = params.get("bird_name") || "";
+          filterBird.dataset.birdId = params.get("bird_id") || "";
+        }
+        if (filterObserver) {
+          filterObserver.value = observer;
+        }
+        if (mapFrom) {
+          mapFrom.value = from;
+        }
+        if (mapTo) {
+          mapTo.value = to;
+        }
+        if (mapBird) {
+          mapBird.value = params.get("bird_name") || "";
+          mapBird.dataset.birdId = params.get("bird_id") || "";
+        }
+        if (mapObserver) {
+          mapObserver.value = observer;
+        }
+      };
+
+      const updateUrlFilters = (
+        fromValue,
+        toValue,
+        birdIdValue,
+        birdNameValue,
+        observerValue
+      ) => {
+        const params = new URLSearchParams(window.location.search);
+        if (fromValue) {
+          params.set("from", fromValue);
+        } else {
+          params.delete("from");
+        }
+        if (toValue) {
+          params.set("to", toValue);
+        } else {
+          params.delete("to");
+        }
+        if (birdIdValue) {
+          params.set("bird_id", birdIdValue);
+          params.set("bird_name", birdNameValue || "");
+        } else {
+          params.delete("bird_id");
+          params.delete("bird_name");
+        }
+        if (observerValue) {
+          params.set("observer", observerValue);
+        } else {
+          params.delete("observer");
+        }
+        const newUrl = `${window.location.pathname}?${params.toString()}`;
+        window.history.replaceState({}, "", newUrl);
+      };
+
+      const renderRecentList = (items) => {
+        const list = document.getElementById("recent-list");
+        if (!list) {
+          return;
+        }
+        list.innerHTML = "";
+        if (!items.length) {
+          list.innerHTML =
+            '<li><p class="empty">No sightings yet. Add one above to start your log.</p></li>';
+          return;
+        }
+        items.forEach((item) => {
+          const card = document.createElement("li");
+          const thumbnail = item.image_url
+            ? `<img class="bird-image" src="${item.image_url}" alt="${item.common_name_uk || "Bird"}" loading="lazy" />`
+            : '<div class="bird-placeholder" aria-hidden="true"></div>';
+          const latin = item.scientific_name
+            ? `<span class="latin">${item.scientific_name}</span>`
+            : "";
+          const observer = item.observer
+            ? `<span class="observer">${item.observer}</span>`
+            : "";
+          card.innerHTML = `
+            <div class="sighting-meta">
+              <div>
+                <span class="bird">${item.common_name_uk || "Unknown bird"}</span>
+                ${latin}
+              </div>
+              <span class="time">${item.created_at}</span>
+              ${observer}
+            </div>
+            <div class="sighting-details">
+              <div class="text">
+                ${item.description ? `<p class="description">${item.description}</p>` : ""}
+                ${item.behavior ? `<p class="behavior">${item.behavior}</p>` : ""}
+                ${item.notes ? `<p class="notes">${item.notes}</p>` : ""}
+                <p class="links">
+                  ${
+                    item.google_maps_url
+                      ? `<a href="${item.google_maps_url}" target="_blank" rel="noreferrer">Open in Google Maps</a>`
+                      : ""
+                  }
+                  ${
+                    item.wiki_url
+                      ? `<a href="${item.wiki_url}" target="_blank" rel="noreferrer">Wikipedia</a>`
+                      : ""
+                  }
+                </p>
+              </div>
+              ${thumbnail}
+            </div>
+          `;
+          const image = card.querySelector("img");
+          if (image) {
+            image.addEventListener("error", () => {
+              console.warn("Image failed", image.src);
+              image.replaceWith(
+                Object.assign(document.createElement("div"), {
+                  className: "bird-placeholder",
+                })
+              );
+            });
+          }
+          list.appendChild(card);
+        });
+      };
+
+      const fetchRecent = async () => {
+        const filterFrom = document.getElementById("filter-from");
+        const filterTo = document.getElementById("filter-to");
+        const filterBird = document.getElementById("filter-bird");
+        const filterObserver = document.getElementById("filter-observer");
+        const extra = {};
+        if (filterBird?.dataset.birdId) {
+          extra.bird_id = filterBird.dataset.birdId;
+        }
+        if (filterObserver?.value) {
+          extra.observer = filterObserver.value;
+        }
+        const query = buildParams(filterFrom, filterTo, extra);
+        const response = await fetch(`/api/sightings?${query}`);
+        if (!response.ok) {
+          return;
+        }
+        const data = await response.json();
+        renderRecentList(data);
+      };
+
+      const filterApply = document.getElementById("filter-apply");
+      const filterClear = document.getElementById("filter-clear");
+      if (filterApply && filterClear) {
+        filterApply.addEventListener("click", () => {
+          const filterFrom = document.getElementById("filter-from");
+          const filterTo = document.getElementById("filter-to");
+          const filterBird = document.getElementById("filter-bird");
+          const filterObserver = document.getElementById("filter-observer");
+          updateUrlFilters(
+            filterFrom.value,
+            filterTo.value,
+            filterBird.dataset.birdId || "",
+            filterBird.value,
+            filterObserver?.value || ""
+          );
+          fetchRecent();
+          refreshMapMarkers();
+        });
+        filterClear.addEventListener("click", () => {
+          document.getElementById("filter-from").value = "";
+          document.getElementById("filter-to").value = "";
+          document.getElementById("filter-bird").value = "";
+          document.getElementById("filter-bird").dataset.birdId = "";
+          document.getElementById("filter-observer").value = "";
+          updateUrlFilters("", "", "", "", "");
+          fetchRecent();
+          refreshMapMarkers();
+        });
+      }
+
+      const mapApply = document.getElementById("map-apply");
+      const mapClear = document.getElementById("map-clear");
+      if (mapApply && mapClear) {
+        mapApply.addEventListener("click", () => {
+          const mapFrom = document.getElementById("map-from");
+          const mapTo = document.getElementById("map-to");
+          const mapBird = document.getElementById("map-bird");
+          const mapObserver = document.getElementById("map-observer");
+          updateUrlFilters(
+            mapFrom.value,
+            mapTo.value,
+            mapBird.dataset.birdId || "",
+            mapBird.value,
+            mapObserver?.value || ""
+          );
+          fetchRecent();
+          refreshMapMarkers();
+        });
+        mapClear.addEventListener("click", () => {
+          document.getElementById("map-from").value = "";
+          document.getElementById("map-to").value = "";
+          document.getElementById("map-bird").value = "";
+          document.getElementById("map-bird").dataset.birdId = "";
+          document.getElementById("map-observer").value = "";
+          updateUrlFilters("", "", "", "", "");
+          fetchRecent();
+          refreshMapMarkers();
+        });
+      }
+
+      let markerLayer = null;
+
+      const refreshMapMarkers = async () => {
+        if (!mapInstance) {
+          return;
+        }
+        if (markerLayer) {
+          markerLayer.clearLayers();
+        }
+        const mapFrom = document.getElementById("map-from");
+        const mapTo = document.getElementById("map-to");
+        const mapBird = document.getElementById("map-bird");
+        const mapObserver = document.getElementById("map-observer");
+        const extra = { only_geocoded: "1" };
+        if (mapBird?.dataset.birdId) {
+          extra.bird_id = mapBird.dataset.birdId;
+        }
+        if (mapObserver?.value) {
+          extra.observer = mapObserver.value;
+        }
+        const query = buildParams(mapFrom, mapTo, extra);
+        const response = await fetch(`/api/sightings?${query}`);
+        if (!response.ok) {
+          return;
+        }
+        const sightings = await response.json();
+        sightings.forEach((sighting) => {
+          const marker = L.marker([sighting.lat, sighting.lng]);
+          const thumbnail = sighting.image_url
+            ? `<img src="${sighting.image_url}" alt="" />`
+            : `<span class="popup-placeholder"></span>`;
+          const observer = sighting.observer
+            ? `<span class="popup-observer">${sighting.observer}</span>`
+            : "";
+          const details = [sighting.description, sighting.behavior, sighting.notes]
+            .filter(Boolean)
+            .join(" · ");
+          const truncated = details.length > 140 ? `${details.slice(0, 140)}…` : details;
+          const popupHtml = `
+            <div class="map-popup">
+              ${thumbnail}
+              <div>
+                <div class="popup-title">${sighting.common_name_uk || "Unknown bird"}</div>
+                ${
+                  sighting.scientific_name
+                    ? `<div class="popup-latin">${sighting.scientific_name}</div>`
+                    : ""
+                }
+                <div class="popup-date">${sighting.created_at}${observer}</div>
+                ${truncated ? `<div class="popup-notes">${truncated}</div>` : ""}
+                <div class="popup-links">
+                  ${
+                    sighting.google_maps_url
+                      ? `<a href="${sighting.google_maps_url}" target="_blank" rel="noreferrer">Open in Google Maps</a>`
+                      : ""
+                  }
+                  ${
+                    sighting.wiki_url
+                      ? `<a href="${sighting.wiki_url}" target="_blank" rel="noreferrer">Wikipedia</a>`
+                      : ""
+                  }
+                </div>
+              </div>
+            </div>
+          `;
+          marker.bindPopup(popupHtml);
+          marker.on("popupopen", (event) => {
+            const img = event.popup.getElement()?.querySelector("img");
+            if (img) {
+              img.addEventListener("error", () => {
+                console.warn("Image failed", img.src);
+                img.replaceWith(
+                  Object.assign(document.createElement("span"), {
+                    className: "popup-placeholder",
+                  })
+                );
+              });
+            }
+          });
+          marker.addTo(markerLayer);
+        });
+      };
+
+      const attachBirdFilter = (inputId, resultsId) => {
+        const input = document.getElementById(inputId);
+        const results = document.getElementById(resultsId);
+        if (!input || !results) {
+          return;
+        }
+
+        const clearResults = () => {
+          results.innerHTML = "";
+          results.hidden = true;
+        };
+
+        input.addEventListener("input", async () => {
+          input.dataset.birdId = "";
+          const value = input.value.trim();
+          if (value.length < 2) {
+            clearResults();
+            return;
+          }
+          const response = await fetch(`/api/birds?q=${encodeURIComponent(value)}`);
+          if (!response.ok) {
+            clearResults();
+            return;
+          }
+          const items = await response.json();
+          results.innerHTML = "";
+          if (!items.length) {
+            clearResults();
+            return;
+          }
+          items.forEach((item) => {
+            const option = document.createElement("button");
+            option.type = "button";
+            option.className = "result";
+            option.textContent = `${item.common_name_uk}${
+              item.scientific_name ? ` — ${item.scientific_name}` : ""
+            }`;
+            option.addEventListener("click", () => {
+              input.value = item.common_name_uk;
+              input.dataset.birdId = item.id;
+              clearResults();
+            });
+            results.appendChild(option);
+          });
+          results.hidden = false;
+        });
+
+        document.addEventListener("click", (event) => {
+          if (!results.contains(event.target) && event.target !== input) {
+            clearResults();
+          }
+        });
+      };
+
+      attachBirdFilter("filter-bird", "filter-bird-results");
+      attachBirdFilter("map-bird", "map-bird-results");
+
+      const initMap = async () => {
+        const mapElement = document.getElementById("map");
+        mapInstance = L.map(mapElement).setView([54.5, -3.0], 5);
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          attribution: "&copy; OpenStreetMap contributors",
+        }).addTo(mapInstance);
+
+        markerLayer = L.layerGroup().addTo(mapInstance);
+        refreshMapMarkers();
+      };
+
+      syncFiltersFromUrl();
+      fetchRecent();
+    </script>
+  </body>
+</html>

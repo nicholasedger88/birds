@@ -14,9 +14,8 @@
   </head>
   <body>
     <div class="corner-bird" aria-hidden="true">
-      <svg viewBox="0 0 40 24" role="img">
-        <path class="wing wing-top" d="M2 12 Q20 4 38 12" />
-        <path class="wing wing-bottom" d="M2 12 Q20 20 38 12" />
+      <svg viewBox="0 0 64 32">
+        <path class="wing" d="M6 22 Q20 10 32 18 Q44 10 58 22" />
       </svg>
     </div>
     <main class="container">
@@ -388,12 +387,41 @@
         );
       };
 
+      const scheduleBirdBurst = () => {
+        const bird = document.querySelector(".corner-bird");
+        if (!bird) {
+          return;
+        }
+        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+          return;
+        }
+        const isSmallScreen = window.matchMedia("(max-width: 640px)").matches;
+        const minDelay = isSmallScreen ? 9000 : 6000;
+        const maxDelay = isSmallScreen ? 16000 : 14000;
+        const delay =
+          Math.floor(Math.random() * (maxDelay - minDelay + 1)) + minDelay;
+        setTimeout(() => {
+          if (bird.classList.contains("is-bursting")) {
+            scheduleBirdBurst();
+            return;
+          }
+          bird.classList.add("is-bursting");
+          bird.addEventListener(
+            "animationend",
+            () => bird.classList.remove("is-bursting"),
+            { once: true }
+          );
+          scheduleBirdBurst();
+        }, delay);
+      };
+
       const sightingForm = document.querySelector("form[action='{{ url_for('create_sighting') }}']");
       if (sightingForm) {
         sightingForm.addEventListener("submit", () => {
           setTimeout(triggerFlap, 300);
         });
       }
+      scheduleBirdBurst();
 
       const buildParams = (fromInput, toInput, extra = {}) => {
         const params = new URLSearchParams(extra);

@@ -67,6 +67,14 @@
             Location label (optional)
             <input type="text" name="location_label" placeholder="Sefton Park" />
           </label>
+          <label>
+            Observer
+            <select name="observer">
+              <option value="Nicholas" selected>Nicholas</option>
+              <option value="Mark">Mark</option>
+              <option value="Andy">Andy</option>
+            </select>
+          </label>
           <input type="hidden" name="lat" id="lat-field" />
           <input type="hidden" name="lng" id="lng-field" />
           <label>
@@ -96,6 +104,15 @@
               <div class="filter-results" id="filter-bird-results" hidden></div>
             </div>
           </label>
+          <label>
+            Observer
+            <select id="filter-observer">
+              <option value="">All</option>
+              <option value="Nicholas">Nicholas</option>
+              <option value="Mark">Mark</option>
+              <option value="Andy">Andy</option>
+            </select>
+          </label>
           <div class="filter-actions">
             <button type="button" id="filter-apply">Apply</button>
             <button type="button" id="filter-clear">Clear</button>
@@ -118,6 +135,7 @@
                   </div>
                   <span class="location">{{ sighting['location'] }}</span>
                   <span class="time">{{ sighting['spotted_at'] }}</span>
+                  <span class="observer">{{ sighting['observer'] }}</span>
                 </div>
                 <div class="sighting-details">
                   <div class="text">
@@ -194,6 +212,15 @@
               <input type="text" id="map-bird" placeholder="Any bird" />
               <div class="filter-results" id="map-bird-results" hidden></div>
             </div>
+          </label>
+          <label>
+            Observer
+            <select id="map-observer">
+              <option value="">All</option>
+              <option value="Nicholas">Nicholas</option>
+              <option value="Mark">Mark</option>
+              <option value="Andy">Andy</option>
+            </select>
           </label>
           <div class="filter-actions">
             <button type="button" id="map-apply">Apply</button>
@@ -438,12 +465,15 @@
         const params = new URLSearchParams(window.location.search);
         const from = params.get("from") || "";
         const to = params.get("to") || "";
+        const observer = params.get("observer") || "";
         const filterFrom = document.getElementById("filter-from");
         const filterTo = document.getElementById("filter-to");
         const filterBird = document.getElementById("filter-bird");
+        const filterObserver = document.getElementById("filter-observer");
         const mapFrom = document.getElementById("map-from");
         const mapTo = document.getElementById("map-to");
         const mapBird = document.getElementById("map-bird");
+        const mapObserver = document.getElementById("map-observer");
         if (filterFrom) {
           filterFrom.value = from;
         }
@@ -453,6 +483,9 @@
         if (filterBird) {
           filterBird.value = params.get("bird_name") || "";
           filterBird.dataset.birdId = params.get("bird_id") || "";
+        }
+        if (filterObserver) {
+          filterObserver.value = observer;
         }
         if (mapFrom) {
           mapFrom.value = from;
@@ -464,9 +497,18 @@
           mapBird.value = params.get("bird_name") || "";
           mapBird.dataset.birdId = params.get("bird_id") || "";
         }
+        if (mapObserver) {
+          mapObserver.value = observer;
+        }
       };
 
-      const updateUrlFilters = (fromValue, toValue, birdIdValue, birdNameValue) => {
+      const updateUrlFilters = (
+        fromValue,
+        toValue,
+        birdIdValue,
+        birdNameValue,
+        observerValue
+      ) => {
         const params = new URLSearchParams(window.location.search);
         if (fromValue) {
           params.set("from", fromValue);
@@ -484,6 +526,11 @@
         } else {
           params.delete("bird_id");
           params.delete("bird_name");
+        }
+        if (observerValue) {
+          params.set("observer", observerValue);
+        } else {
+          params.delete("observer");
         }
         const newUrl = `${window.location.pathname}?${params.toString()}`;
         window.history.replaceState({}, "", newUrl);
@@ -508,6 +555,9 @@
           const latin = item.scientific_name
             ? `<span class="latin">${item.scientific_name}</span>`
             : "";
+          const observer = item.observer
+            ? `<span class="observer">${item.observer}</span>`
+            : "";
           card.innerHTML = `
             <div class="sighting-meta">
               <div>
@@ -515,6 +565,7 @@
                 ${latin}
               </div>
               <span class="time">${item.created_at}</span>
+              ${observer}
             </div>
             <div class="sighting-details">
               <div class="text">
@@ -556,9 +607,13 @@
         const filterFrom = document.getElementById("filter-from");
         const filterTo = document.getElementById("filter-to");
         const filterBird = document.getElementById("filter-bird");
+        const filterObserver = document.getElementById("filter-observer");
         const extra = {};
         if (filterBird?.dataset.birdId) {
           extra.bird_id = filterBird.dataset.birdId;
+        }
+        if (filterObserver?.value) {
+          extra.observer = filterObserver.value;
         }
         const query = buildParams(filterFrom, filterTo, extra);
         const response = await fetch(`/api/sightings?${query}`);
@@ -576,11 +631,13 @@
           const filterFrom = document.getElementById("filter-from");
           const filterTo = document.getElementById("filter-to");
           const filterBird = document.getElementById("filter-bird");
+          const filterObserver = document.getElementById("filter-observer");
           updateUrlFilters(
             filterFrom.value,
             filterTo.value,
             filterBird.dataset.birdId || "",
-            filterBird.value
+            filterBird.value,
+            filterObserver?.value || ""
           );
           fetchRecent();
           refreshMapMarkers();
@@ -590,7 +647,8 @@
           document.getElementById("filter-to").value = "";
           document.getElementById("filter-bird").value = "";
           document.getElementById("filter-bird").dataset.birdId = "";
-          updateUrlFilters("", "", "", "");
+          document.getElementById("filter-observer").value = "";
+          updateUrlFilters("", "", "", "", "");
           fetchRecent();
           refreshMapMarkers();
         });
@@ -603,11 +661,13 @@
           const mapFrom = document.getElementById("map-from");
           const mapTo = document.getElementById("map-to");
           const mapBird = document.getElementById("map-bird");
+          const mapObserver = document.getElementById("map-observer");
           updateUrlFilters(
             mapFrom.value,
             mapTo.value,
             mapBird.dataset.birdId || "",
-            mapBird.value
+            mapBird.value,
+            mapObserver?.value || ""
           );
           fetchRecent();
           refreshMapMarkers();
@@ -617,7 +677,8 @@
           document.getElementById("map-to").value = "";
           document.getElementById("map-bird").value = "";
           document.getElementById("map-bird").dataset.birdId = "";
-          updateUrlFilters("", "", "", "");
+          document.getElementById("map-observer").value = "";
+          updateUrlFilters("", "", "", "", "");
           fetchRecent();
           refreshMapMarkers();
         });
@@ -635,9 +696,13 @@
         const mapFrom = document.getElementById("map-from");
         const mapTo = document.getElementById("map-to");
         const mapBird = document.getElementById("map-bird");
+        const mapObserver = document.getElementById("map-observer");
         const extra = { only_geocoded: "1" };
         if (mapBird?.dataset.birdId) {
           extra.bird_id = mapBird.dataset.birdId;
+        }
+        if (mapObserver?.value) {
+          extra.observer = mapObserver.value;
         }
         const query = buildParams(mapFrom, mapTo, extra);
         const response = await fetch(`/api/sightings?${query}`);
@@ -650,6 +715,9 @@
           const thumbnail = sighting.image_url
             ? `<img src="${sighting.image_url}" alt="" />`
             : `<span class="popup-placeholder"></span>`;
+          const observer = sighting.observer
+            ? `<span class="popup-observer">${sighting.observer}</span>`
+            : "";
           const details = [sighting.description, sighting.behavior, sighting.notes]
             .filter(Boolean)
             .join(" · ");
@@ -664,7 +732,7 @@
                     ? `<div class="popup-latin">${sighting.scientific_name}</div>`
                     : ""
                 }
-                <div class="popup-date">${sighting.created_at}</div>
+                <div class="popup-date">${sighting.created_at}${observer}</div>
                 ${truncated ? `<div class="popup-notes">${truncated}</div>` : ""}
                 <div class="popup-links">
                   ${

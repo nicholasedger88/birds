@@ -34,6 +34,7 @@ def init_db() -> None:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 bird_name TEXT NOT NULL,
                 location TEXT NOT NULL,
+                observer TEXT NOT NULL DEFAULT 'Nicholas',
                 bird_id INTEGER,
                 bird_text TEXT,
                 latitude REAL,
@@ -100,6 +101,7 @@ def init_db() -> None:
             "latin_name": "TEXT",
             "description": "TEXT",
             "behavior": "TEXT",
+            "observer": "TEXT NOT NULL DEFAULT 'Nicholas'",
         }
         for column, column_type in optional_columns.items():
             if column not in existing_columns:
@@ -138,12 +140,20 @@ BIRD_PROFILES = {
     },
 }
 
+ALLOWED_OBSERVERS = {"Nicholas", "Mark", "Andy"}
+
 
 def normalize_text(value: str) -> str:
     value = value.casefold().strip()
     value = re.sub(r"[^\w\s]", " ", value)
     value = re.sub(r"\s+", " ", value)
     return value.strip()
+
+
+def normalize_observer(value: str) -> str:
+    if value in ALLOWED_OBSERVERS:
+        return value
+    return "Nicholas"
 
 
 def bird_profile_for_name(name: str) -> dict[str, str]:
@@ -281,6 +291,7 @@ def fetch_sightings() -> Iterable[sqlite3.Row]:
                 sightings.id,
                 sightings.bird_name,
                 sightings.location,
+                sightings.observer,
                 sightings.bird_id,
                 sightings.bird_text,
                 COALESCE(sightings.lat, sightings.latitude) AS lat,
@@ -328,6 +339,7 @@ def sightings_api():
     to_date = request.args.get("to", "").strip()
     only_geocoded = request.args.get("only_geocoded", "").strip() == "1"
     bird_id = request.args.get("bird_id", "").strip()
+    observer = request.args.get("observer", "").strip()
 
     filters = []
     params: dict[str, str] = {}
@@ -346,6 +358,10 @@ def sightings_api():
     if bird_id:
         filters.append("sightings.bird_id = :bird_id")
         params["bird_id"] = bird_id
+    if observer:
+        observer_value = normalize_observer(observer)
+        filters.append("sightings.observer = :observer")
+        params["observer"] = observer_value
 
     where_clause = f"WHERE {' AND '.join(filters)}" if filters else ""
 
@@ -358,6 +374,7 @@ def sightings_api():
                 sightings.description,
                 sightings.behavior,
                 sightings.notes,
+                sightings.observer,
                 COALESCE(sightings.lat, sightings.latitude) AS lat,
                 COALESCE(sightings.lng, sightings.longitude) AS lng,
                 birds.common_name_uk,
@@ -401,6 +418,7 @@ def sightings_api():
                     "description": row["description"],
                     "behavior": row["behavior"],
                     "notes": row["notes"],
+                    "observer": row["observer"],
                     "lat": row["lat"],
                     "lng": row["lng"],
                     "google_maps_url": google_maps_url,
@@ -539,6 +557,7 @@ def create_sighting():
     notes = request.form.get("notes", "").strip()
     bird_id = request.form.get("bird_id", "").strip() or None
     bird_text = bird_name if not bird_id else None
+    observer = normalize_observer(request.form.get("observer", "").strip())
 
     profile = bird_profile_for_name(bird_name)
     latin_name = profile.get("latin_name")
@@ -560,9 +579,10 @@ def create_sighting():
                     latin_name,
                     description,
                     behavior,
-                    notes
+                    notes,
+                    observer
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     bird_name,
@@ -576,6 +596,7 @@ def create_sighting():
                     description,
                     behavior,
                     notes or None,
+                    observer,
                 ),
             )
 

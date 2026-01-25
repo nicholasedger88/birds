@@ -444,7 +444,6 @@
         const locationField = document.getElementById("location");
         const latField = document.getElementById("lat-field");
         const lngField = document.getElementById("lng-field");
-        const locationLabelField = document.querySelector("input[name='location_label']");
         const mapsLinkField = document.getElementById("maps-link");
         const mapsExtractButton = document.getElementById("maps-extract");
         const mapsStatus = document.getElementById("maps-status");
@@ -467,7 +466,7 @@
           }
         };
 
-        const setLocation = ({ lat, lng, locationText, labelText }) => {
+        const setLocation = ({ lat, lng, locationText }) => {
           if (!latField || !lngField) {
             return;
           }
@@ -475,9 +474,6 @@
           lngField.value = Number(lng).toFixed(6);
           if (locationField && locationText) {
             locationField.value = locationText;
-          }
-          if (locationLabelField && (labelText || !locationLabelField.value)) {
-            locationLabelField.value = labelText || locationLabelField.value;
           }
           updatePinnedStatus();
         };
@@ -502,7 +498,6 @@
                   lat: latitude,
                   lng: longitude,
                   locationText: `Current location (${latitude.toFixed(5)}, ${longitude.toFixed(5)})`,
-                  labelText: `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`,
                 });
                 if (geoStatus) {
                   geoStatus.textContent = "Location captured.";
@@ -523,7 +518,11 @@
             updatePinnedStatus();
           };
 
-          const toggleLocationPanels = (method) => {
+          const setActiveLocationMethod = (method) => {
+            if (!locationMethodButtons.length || !locationPanels.length) {
+              console.warn("Location method controls missing; skipping location methods.");
+              return;
+            }
             locationPanels.forEach((panel) => {
               panel.hidden = panel.dataset.method !== method;
             });
@@ -551,11 +550,9 @@
             console.warn("Location method controls missing; skipping location methods.");
           } else {
             locationMethodButtons.forEach((button) => {
-              button.addEventListener("click", () => toggleLocationPanels(button.dataset.method));
+              button.addEventListener("click", () => setActiveLocationMethod(button.dataset.method));
             });
-            toggleLocationPanels(
-              locationMethodInput?.value || "free"
-            );
+            setActiveLocationMethod(locationMethodInput?.value || "free");
           }
 
           const setMapsStatus = (message, link) => {
@@ -580,7 +577,6 @@
                 lat,
                 lng,
                 locationText: `Pinned location (${lat.toFixed(5)}, ${lng.toFixed(5)})`,
-                labelText: label_guess || `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
               });
               setMapsStatus("Location saved.", google_maps_url);
             }
@@ -670,7 +666,6 @@
                 lat,
                 lng,
                 locationText: `Pinned location (${lat.toFixed(5)}, ${lng.toFixed(5)})`,
-                labelText: `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
               });
               setMapsStatus(
                 "Location saved.",

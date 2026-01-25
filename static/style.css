@@ -125,6 +125,33 @@ header p {
   color: #fdfcf9;
 }
 
+.location-methods {
+  gap: 0.35rem;
+}
+
+.location-methods .segment {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.location-methods .segment input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.location-panel {
+  margin-top: 0.4rem;
+}
+
+.field-error {
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+  color: #b42318;
+}
+
 .view {
   opacity: 0;
   transform: translateY(6px);

@@ -12,7 +12,7 @@
       crossorigin=""
     />
   </head>
-  <body>
+  <body data-birds-api="{{ url_for('search_birds') }}">
     <div class="corner-bird" aria-hidden="true">
       <svg viewBox="0 0 64 32">
         <path class="wing" d="M6 22 Q20 10 32 18 Q44 10 58 22" />
@@ -39,36 +39,57 @@
               <input
                 type="text"
                 name="bird_name"
-                id="bird-input"
+                id="bird_name"
                 placeholder="European Robin"
                 autocomplete="off"
                 required
               />
-              <input type="hidden" name="bird_id" id="bird-id" />
+              <input type="hidden" name="bird_id" id="bird_id" />
               <div class="autocomplete-list" id="bird-results" hidden></div>
             </div>
             <span class="helper">Type any species; pick from suggestions if available.</span>
+            <div class="field-error" id="bird-error" aria-live="polite"></div>
           </label>
           <label>
-            Location
-            <div class="location-row">
-              <input
-                type="text"
-                name="location"
-                id="location-field"
-                placeholder="Lakefront trail"
-                required
-              />
-              <button type="button" id="geo-button">Use my location</button>
-              <button type="button" id="geo-clear">Clear</button>
+            Location (required)
+            <input
+              type="text"
+              name="location"
+              id="location-field"
+              placeholder="Lakefront trail"
+              required
+            />
+          </label>
+          <label>
+            Location method
+            <div class="segmented location-methods" role="radiogroup" aria-label="Location method">
+              <label class="segment">
+                <input type="radio" name="location_method" value="current" />
+                <span>Current location</span>
+              </label>
+              <label class="segment">
+                <input type="radio" name="location_method" value="map" />
+                <span>Pick on map</span>
+              </label>
+              <label class="segment">
+                <input type="radio" name="location_method" value="maps-link" />
+                <span>Google Maps link</span>
+              </label>
+              <label class="segment active">
+                <input type="radio" name="location_method" value="free" checked />
+                <span>Free text</span>
+              </label>
             </div>
           </label>
-          <label>
-            Location label (optional)
-            <input type="text" name="location_label" placeholder="Sefton Park" />
-          </label>
-          <label>
-            Google Maps link (optional)
+          <div class="location-panel" data-method="current" hidden>
+            <button type="button" id="geo-button">Use my current location</button>
+            <p class="helper" id="geo-status">Location uses your browser's GPS when available.</p>
+          </div>
+          <div class="location-panel" data-method="map" hidden>
+            <button type="button" id="map-picker-button">Pick on map</button>
+            <p class="helper" id="map-picker-helper">Choose a point on the map to save coordinates.</p>
+          </div>
+          <div class="location-panel" data-method="maps-link" hidden>
             <div class="maps-link-row">
               <input
                 type="text"
@@ -76,13 +97,18 @@
                 id="maps-link"
                 placeholder="https://maps.google.com/..."
               />
-              <button type="button" id="maps-extract">Extract coordinates</button>
+              <button type="button" id="maps-extract">Extract</button>
             </div>
             <span class="helper">Open Google Maps, drop a pin, Share → Copy link, paste here.</span>
             <div class="maps-status" id="maps-status" aria-live="polite"></div>
-            <button type="button" id="map-picker-button" class="map-picker-button">
-              Pick on map
-            </button>
+          </div>
+          <div class="location-panel" data-method="free">
+            <p class="helper">This sighting won’t be mapped.</p>
+          </div>
+          <label>
+            Location label (optional)
+            <input type="text" name="location_label" placeholder="Sefton Park, Liverpool" />
+            <span class="helper">Optional: e.g. “Sefton Park, Liverpool”.</span>
           </label>
           <label>
             Observer
@@ -99,7 +125,6 @@
             <textarea name="notes" rows="3" placeholder="Behavior, weather, or details"></textarea>
           </label>
           <button type="submit">Add sighting</button>
-          <p class="helper" id="geo-status">Location uses your browser's GPS when available.</p>
         </form>
       </section>
 
@@ -290,9 +315,11 @@
         segment.addEventListener("click", () => showView(segment.dataset.view));
       });
 
-      const birdInput = document.getElementById("bird-input");
-      const birdIdInput = document.getElementById("bird-id");
+      const birdsApi = document.body.dataset.birdsApi || "/api/birds";
+      const birdInput = document.getElementById("bird_name");
+      const birdIdInput = document.getElementById("bird_id");
       const birdResults = document.getElementById("bird-results");
+      const birdError = document.getElementById("bird-error");
       let activeIndex = -1;
 
       const clearResults = () => {
@@ -345,13 +372,22 @@
       };
 
       const fetchResults = async (value) => {
-        const response = await fetch(`/api/birds?q=${encodeURIComponent(value)}`);
-        if (!response.ok) {
+        try {
+          const response = await fetch(`${birdsApi}?q=${encodeURIComponent(value)}`);
+          if (!response.ok) {
+            throw new Error("Request failed");
+          }
+          const data = await response.json();
+          if (birdError) {
+            birdError.textContent = "";
+          }
+          renderResults(data);
+        } catch (error) {
           clearResults();
-          return;
+          if (birdError) {
+            birdError.textContent = "Unable to load suggestions. Try again.";
+          }
         }
-        const data = await response.json();
-        renderResults(data);
       };
 
       birdInput.addEventListener("input", () => {
@@ -361,6 +397,9 @@
         const value = birdInput.value.trim();
         if (value.length < 2) {
           clearResults();
+          if (birdError) {
+            birdError.textContent = "";
+          }
           return;
         }
         fetchResults(value);
@@ -398,7 +437,6 @@
       });
 
       const geoButton = document.getElementById("geo-button");
-      const geoClear = document.getElementById("geo-clear");
       const geoStatus = document.getElementById("geo-status");
       const locationField = document.getElementById("location-field");
       const latField = document.getElementById("lat-field");
@@ -408,6 +446,8 @@
       const mapsExtractButton = document.getElementById("maps-extract");
       const mapsStatus = document.getElementById("maps-status");
       const mapPickerButton = document.getElementById("map-picker-button");
+      const locationMethods = document.querySelectorAll("input[name='location_method']");
+      const locationPanels = document.querySelectorAll(".location-panel");
 
       geoButton.addEventListener("click", () => {
         if (!navigator.geolocation) {
@@ -430,11 +470,40 @@
         );
       });
 
-      geoClear.addEventListener("click", () => {
+      const clearCoordinates = () => {
         latField.value = "";
         lngField.value = "";
-        geoStatus.textContent = "Location cleared.";
+      };
+
+      const toggleLocationPanels = (method) => {
+        locationPanels.forEach((panel) => {
+          panel.hidden = panel.dataset.method !== method;
+        });
+        document.querySelectorAll(".location-methods .segment").forEach((segment) => {
+          const input = segment.querySelector("input");
+          segment.classList.toggle("active", input?.value === method);
+        });
+        if (method === "free") {
+          clearCoordinates();
+          if (mapsLinkField) {
+            mapsLinkField.value = "";
+          }
+          if (mapsStatus) {
+            mapsStatus.textContent = "";
+          }
+          if (geoStatus) {
+            geoStatus.textContent = "Location uses your browser's GPS when available.";
+          }
+        }
+      };
+
+      locationMethods.forEach((input) => {
+        input.addEventListener("change", () => toggleLocationPanels(input.value));
       });
+
+      toggleLocationPanels(
+        document.querySelector("input[name='location_method']:checked")?.value || "free"
+      );
 
       const setMapsStatus = (message, link) => {
         if (!mapsStatus) {
@@ -939,7 +1008,7 @@
             clearResults();
             return;
           }
-          const response = await fetch(`/api/birds?q=${encodeURIComponent(value)}`);
+          const response = await fetch(`${birdsApi}?q=${encodeURIComponent(value)}`);
           if (!response.ok) {
             clearResults();
             return;

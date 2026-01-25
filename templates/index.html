@@ -33,182 +33,146 @@
       <section class="panel view is-active" data-view="log">
         <h2>Log a new sighting</h2>
         <form action="{{ url_for('create_sighting') }}" method="post">
-          <label>
-            Bird name
-            <div class="autocomplete">
+          <div class="field">
+            <label>
+              Bird name
+              <div class="autocomplete">
+                <input
+                  type="text"
+                  name="bird_name"
+                  id="bird_name"
+                  placeholder="European Robin"
+                  autocomplete="off"
+                  required
+                />
+                <input type="hidden" name="bird_id" id="bird_id" />
+                <div class="autocomplete-list" id="bird-results" hidden></div>
+              </div>
+              <span class="helper">Type any species; pick from suggestions if available.</span>
+              <div class="field-error" id="bird-error" aria-live="polite"></div>
+            </label>
+          </div>
+          <div class="field">
+            <label>
+              Location method
+              <select id="location_method" name="location_method">
+                <option value="free">Free text (no coords)</option>
+                <option value="current">Use current location</option>
+                <option value="map">Pick on map</option>
+                <option value="maps-link">Paste Google Maps link</option>
+              </select>
+            </label>
+            <div class="location-panel" data-method="free">
+              <p class="helper">No coordinates will be saved.</p>
+            </div>
+            <div class="location-panel" data-method="current" hidden>
+              <button type="button" id="geo-button">Use my location</button>
+              <p class="helper" id="geo-status">Location uses your browser's GPS when available.</p>
+            </div>
+            <div class="location-panel" data-method="map" hidden>
+              <button type="button" id="map-picker-button">Pick on map</button>
+              <p class="helper" id="map-picker-helper">Choose a point on the map to save coordinates.</p>
+            </div>
+            <div class="location-panel" data-method="maps-link" hidden>
+              <div class="maps-link-row">
+                <input
+                  type="text"
+                  name="google_maps_link"
+                  id="maps-link"
+                  placeholder="https://maps.google.com/..."
+                />
+                <button type="button" id="maps-extract">Extract</button>
+              </div>
+              <span class="helper">Open Google Maps, drop a pin, Share → Copy link, paste here.</span>
+              <div class="maps-status" id="maps-status" aria-live="polite"></div>
+            </div>
+            <div class="helper coords-status" id="coords-status" aria-live="polite"></div>
+          </div>
+          <div class="field">
+            <label>
+              Location (required)
               <input
                 type="text"
-                name="bird_name"
-                id="bird_name"
-                placeholder="European Robin"
-                autocomplete="off"
+                name="location"
+                id="location"
+                placeholder="Lakefront trail"
                 required
               />
-              <input type="hidden" name="bird_id" id="bird_id" />
-              <div class="autocomplete-list" id="bird-results" hidden></div>
-            </div>
-            <span class="helper">Type any species; pick from suggestions if available.</span>
-            <div class="field-error" id="bird-error" aria-live="polite"></div>
-          </label>
-          <label>
-            Location method
-            <select id="location_method" name="location_method">
-              <option value="free">Free text (no coords)</option>
-              <option value="current">Use current location</option>
-              <option value="map">Pick on map</option>
-              <option value="maps-link">Paste Google Maps link</option>
-            </select>
-          </label>
-          <div class="location-panel" data-method="free">
-            <p class="helper">No coordinates will be saved.</p>
+            </label>
           </div>
-          <div class="location-panel" data-method="current" hidden>
-            <button type="button" id="geo-button">Use my location</button>
-            <p class="helper" id="geo-status">Location uses your browser's GPS when available.</p>
-          </div>
-          <div class="location-panel" data-method="map" hidden>
-            <button type="button" id="map-picker-button">Pick on map</button>
-            <p class="helper" id="map-picker-helper">Choose a point on the map to save coordinates.</p>
-          </div>
-          <div class="location-panel" data-method="maps-link" hidden>
-            <div class="maps-link-row">
+          <div class="field">
+            <label>
+              Location label (optional)
               <input
                 type="text"
-                name="google_maps_link"
-                id="maps-link"
-                placeholder="https://maps.google.com/..."
+                id="location_label"
+                name="location_label"
+                placeholder="Sefton Park, Liverpool"
               />
-              <button type="button" id="maps-extract">Extract</button>
-            </div>
-            <span class="helper">Open Google Maps, drop a pin, Share → Copy link, paste here.</span>
-            <div class="maps-status" id="maps-status" aria-live="polite"></div>
+              <span class="helper">Optional: e.g. “Sefton Park, Liverpool”.</span>
+            </label>
           </div>
-          <div class="helper coords-status" id="coords-status" aria-live="polite"></div>
-          <label>
-            Location (required)
-            <input
-              type="text"
-              name="location"
-              id="location"
-              placeholder="Lakefront trail"
-              required
-            />
-          </label>
-          <label>
-            Location label (optional)
-            <input
-              type="text"
-              id="location_label"
-              name="location_label"
-              placeholder="Sefton Park, Liverpool"
-            />
-            <span class="helper">Optional: e.g. “Sefton Park, Liverpool”.</span>
-          </label>
-          <label>
-            Observer
-            <select name="observer">
-              <option value="Nicholas" selected>Nicholas</option>
-              <option value="Mark">Mark</option>
-              <option value="Andy">Andy</option>
-            </select>
-          </label>
+          <div class="field">
+            <label>
+              Observer
+              <select name="observer">
+                <option value="Nicholas" selected>Nicholas</option>
+                <option value="Mark">Mark</option>
+                <option value="Andy">Andy</option>
+              </select>
+            </label>
+          </div>
           <input type="hidden" name="lat" id="lat" />
           <input type="hidden" name="lng" id="lng" />
-          <label>
-            Notes (optional)
-            <textarea name="notes" rows="3" placeholder="Behavior, weather, or details"></textarea>
-          </label>
+          <div class="field">
+            <label>
+              Notes (optional)
+              <textarea name="notes" rows="3" placeholder="Behavior, weather, or details"></textarea>
+            </label>
+          </div>
           <button type="submit">Add sighting</button>
         </form>
       </section>
 
       <section class="panel view" data-view="recent">
         <h2>Recent sightings</h2>
-        <div class="filters">
-          <label>
-            From
-            <input type="date" id="filter-from" />
-          </label>
-          <label>
-            To
-            <input type="date" id="filter-to" />
-          </label>
-          <label>
-            Bird
-            <div class="filter-autocomplete">
-              <input type="text" id="filter-bird" placeholder="Any bird" />
-              <div class="filter-results" id="filter-bird-results" hidden></div>
+        <div class="filter-bar">
+          <div class="filters">
+            <label>
+              From
+              <input type="date" id="filter-from" />
+            </label>
+            <label>
+              To
+              <input type="date" id="filter-to" />
+            </label>
+            <label>
+              Bird
+              <div class="filter-autocomplete">
+                <input type="text" id="filter-bird" placeholder="Any bird" />
+                <div class="filter-results" id="filter-bird-results" hidden></div>
+              </div>
+            </label>
+            <label>
+              Observer
+              <select id="filter-observer">
+                <option value="">All</option>
+                <option value="Nicholas">Nicholas</option>
+                <option value="Mark">Mark</option>
+                <option value="Andy">Andy</option>
+              </select>
+            </label>
+            <div class="filter-actions">
+              <button type="button" id="filter-apply">Apply</button>
+              <button type="button" id="filter-clear">Clear</button>
             </div>
-          </label>
-          <label>
-            Observer
-            <select id="filter-observer">
-              <option value="">All</option>
-              <option value="Nicholas">Nicholas</option>
-              <option value="Mark">Mark</option>
-              <option value="Andy">Andy</option>
-            </select>
-          </label>
-          <div class="filter-actions">
-            <button type="button" id="filter-apply">Apply</button>
-            <button type="button" id="filter-clear">Clear</button>
           </div>
         </div>
         {% if sightings %}
           <ul class="sighting-list" id="recent-list">
             {% for sighting in sightings %}
-              <li>
-                <div class="sighting-meta">
-                  <div>
-                    {% if sighting['bird_id'] %}
-                      <span class="bird">{{ sighting['common_name_uk'] }}</span>
-                      {% if sighting['scientific_name'] %}
-                        <span class="latin">{{ sighting['scientific_name'] }}</span>
-                      {% endif %}
-                    {% else %}
-                      <span class="bird">{{ sighting['bird_text'] or sighting['bird_name'] }}</span>
-                    {% endif %}
-                  </div>
-                  <span class="location">{{ sighting['location'] }}</span>
-                  <span class="time">{{ sighting['spotted_at'] }}</span>
-                  <span class="observer">{{ sighting['observer'] }}</span>
-                </div>
-                <div class="sighting-details">
-                  <div class="text">
-                    {% if sighting['description'] %}
-                      <p class="description">{{ sighting['description'] }}</p>
-                    {% endif %}
-                    {% if sighting['behavior'] %}
-                      <p class="behavior">{{ sighting['behavior'] }}</p>
-                    {% endif %}
-                    {% if sighting['notes'] %}
-                      <p class="notes">{{ sighting['notes'] }}</p>
-                    {% endif %}
-                    <p class="links">
-                      {% if sighting['lat'] and sighting['lng'] %}
-                        <a
-                          href="https://www.google.com/maps?q={{ sighting['lat'] }},{{ sighting['lng'] }}"
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          View on Google Maps
-                        </a>
-                        {% if sighting['location_label'] %}
-                          <span class="label">{{ sighting['location_label'] }}</span>
-                        {% endif %}
-                      {% endif %}
-                      {% if sighting['wikipedia_title'] or sighting['common_name_uk'] or sighting['scientific_name'] %}
-                        {% set wiki_title = sighting['wikipedia_title'] or sighting['common_name_uk'] or sighting['scientific_name'] %}
-                        <a
-                          href="https://en.wikipedia.org/wiki/{{ wiki_title | urlencode }}"
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          Wikipedia
-                        </a>
-                      {% endif %}
-                    </p>
-                  </div>
+              <li class="card" id="sighting-{{ sighting['id'] }}">
+                <div class="card-media">
                   {% if sighting['bird_id'] %}
                     {% if sighting['image_url'] %}
                       <img
@@ -221,7 +185,58 @@
                     {% else %}
                       <div class="bird-placeholder" aria-hidden="true"></div>
                     {% endif %}
+                  {% else %}
+                    <div class="bird-placeholder" aria-hidden="true"></div>
                   {% endif %}
+                </div>
+                <div class="card-main">
+                  <div class="card-title">
+                    {% if sighting['bird_id'] %}
+                      <span class="bird">{{ sighting['common_name_uk'] }}</span>
+                      {% if sighting['scientific_name'] %}
+                        <span class="latin">{{ sighting['scientific_name'] }}</span>
+                      {% endif %}
+                    {% else %}
+                      <span class="bird">{{ sighting['bird_text'] or sighting['bird_name'] }}</span>
+                    {% endif %}
+                  </div>
+                  <div class="card-location">
+                    <span>{{ sighting['location'] }}</span>
+                    {% if sighting['lat'] and sighting['lng'] %}
+                      <a
+                        href="https://www.google.com/maps?q={{ sighting['lat'] }},{{ sighting['lng'] }}"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Map
+                      </a>
+                    {% endif %}
+                  </div>
+                  {% if sighting['description'] %}
+                    <p class="description">{{ sighting['description'] }}</p>
+                  {% endif %}
+                  {% if sighting['behavior'] %}
+                    <p class="behavior">{{ sighting['behavior'] }}</p>
+                  {% endif %}
+                  {% if sighting['notes'] %}
+                    <p class="notes">{{ sighting['notes'] }}</p>
+                  {% endif %}
+                  <div class="card-links">
+                    {% if sighting['wikipedia_title'] or sighting['common_name_uk'] or sighting['scientific_name'] %}
+                      {% set wiki_title = sighting['wikipedia_title'] or sighting['common_name_uk'] or sighting['scientific_name'] %}
+                      <a
+                        href="https://en.wikipedia.org/wiki/{{ wiki_title | urlencode }}"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Wikipedia
+                      </a>
+                    {% endif %}
+                  </div>
+                </div>
+                <div class="card-meta">
+                  <span class="time">{{ sighting['spotted_at'] }}</span>
+                  <span class="observer">{{ sighting['observer'] }}</span>
                 </div>
               </li>
             {% endfor %}
@@ -266,6 +281,8 @@
         <div id="map" class="map-canvas" aria-label="Bird sightings map"></div>
       </section>
     </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden>Saved</div>
 
     <div class="map-modal" id="map-modal" hidden>
       <div class="map-modal-backdrop" data-close="true"></div>
@@ -820,6 +837,8 @@
         }
         items.forEach((item) => {
           const card = document.createElement("li");
+          card.className = "card";
+          card.id = `sighting-${item.id}`;
           const thumbnail = item.image_url
             ? `<img class="bird-image" src="${item.image_url}" alt="${item.common_name_uk || "Bird"}" loading="lazy" />`
             : '<div class="bird-placeholder" aria-hidden="true"></div>';
@@ -829,34 +848,34 @@
           const observer = item.observer
             ? `<span class="observer">${item.observer}</span>`
             : "";
+          const mapLink = item.google_maps_url
+            ? `<a href="${item.google_maps_url}" target="_blank" rel="noreferrer">Map</a>`
+            : "";
           card.innerHTML = `
-            <div class="sighting-meta">
-              <div>
+            <div class="card-media">${thumbnail}</div>
+            <div class="card-main">
+              <div class="card-title">
                 <span class="bird">${item.common_name_uk || "Unknown bird"}</span>
                 ${latin}
               </div>
+              <div class="card-location">
+                <span>${item.location || ""}</span>
+                ${mapLink}
+              </div>
+              ${item.description ? `<p class="description">${item.description}</p>` : ""}
+              ${item.behavior ? `<p class="behavior">${item.behavior}</p>` : ""}
+              ${item.notes ? `<p class="notes">${item.notes}</p>` : ""}
+              <div class="card-links">
+                ${
+                  item.wiki_url
+                    ? `<a href="${item.wiki_url}" target="_blank" rel="noreferrer">Wikipedia</a>`
+                    : ""
+                }
+              </div>
+            </div>
+            <div class="card-meta">
               <span class="time">${item.created_at}</span>
               ${observer}
-            </div>
-            <div class="sighting-details">
-              <div class="text">
-                ${item.description ? `<p class="description">${item.description}</p>` : ""}
-                ${item.behavior ? `<p class="behavior">${item.behavior}</p>` : ""}
-                ${item.notes ? `<p class="notes">${item.notes}</p>` : ""}
-                <p class="links">
-                  ${
-                    item.google_maps_url
-                      ? `<a href="${item.google_maps_url}" target="_blank" rel="noreferrer">Open in Google Maps</a>`
-                      : ""
-                  }
-                  ${
-                    item.wiki_url
-                      ? `<a href="${item.wiki_url}" target="_blank" rel="noreferrer">Wikipedia</a>`
-                      : ""
-                  }
-                </p>
-              </div>
-              ${thumbnail}
             </div>
           `;
           const image = card.querySelector("img");
@@ -893,6 +912,7 @@
         }
         const data = await response.json();
         renderRecentList(data);
+        return data;
       };
 
       const filterApply = document.getElementById("filter-apply");
@@ -1106,8 +1126,40 @@
         refreshMapMarkers();
       };
 
+      const highlightSighting = (id) => {
+        const card = document.getElementById(`sighting-${id}`);
+        if (!card) {
+          return;
+        }
+        card.classList.add("card-highlight");
+        card.scrollIntoView({ behavior: "smooth", block: "center" });
+        setTimeout(() => card.classList.remove("card-highlight"), 1500);
+      };
+
+      const showToast = () => {
+        const toast = document.getElementById("toast");
+        if (!toast) {
+          return;
+        }
+        toast.hidden = false;
+        setTimeout(() => {
+          toast.hidden = true;
+        }, 2000);
+      };
+
       syncFiltersFromUrl();
-      fetchRecent();
+      fetchRecent().then(() => {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get("saved") === "1") {
+          showToast();
+          showView("recent");
+          const newId = params.get("new_id");
+          if (newId) {
+            highlightSighting(newId);
+          }
+          triggerFlap();
+        }
+      });
       });
     </script>
   </body>

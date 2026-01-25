@@ -458,6 +458,7 @@ def sightings_api():
             SELECT
                 sightings.id,
                 sightings.spotted_at,
+                sightings.location,
                 sightings.description,
                 sightings.behavior,
                 sightings.notes,
@@ -498,6 +499,7 @@ def sightings_api():
                 {
                     "id": row["id"],
                     "created_at": row["spotted_at"],
+                    "location": row["location"],
                     "common_name_uk": row["common_name_uk"],
                     "scientific_name": row["scientific_name"],
                     "image_url": image_url,
@@ -651,9 +653,10 @@ def create_sighting():
     description = profile.get("description")
     behavior = profile.get("behavior")
 
+    new_id = None
     if bird_name and location:
         with get_connection() as connection:
-            connection.execute(
+            cursor = connection.execute(
                 """
                 INSERT INTO sightings (
                     bird_name,
@@ -686,7 +689,10 @@ def create_sighting():
                     observer,
                 ),
             )
+            new_id = cursor.lastrowid
 
+    if new_id:
+        return redirect(url_for("index", view="recent", saved=1, new_id=new_id))
     return redirect(url_for("index"))
 
 

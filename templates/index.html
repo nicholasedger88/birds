@@ -248,34 +248,36 @@
 
       <section class="panel view" data-view="map">
         <h2>Map view</h2>
-        <div class="filters">
-          <label>
-            From
-            <input type="date" id="map-from" />
-          </label>
-          <label>
-            To
-            <input type="date" id="map-to" />
-          </label>
-          <label>
-            Bird
-            <div class="filter-autocomplete">
-              <input type="text" id="map-bird" placeholder="Any bird" />
-              <div class="filter-results" id="map-bird-results" hidden></div>
+        <div class="filter-bar">
+          <div class="filters">
+            <label>
+              From
+              <input type="date" id="map-from" />
+            </label>
+            <label>
+              To
+              <input type="date" id="map-to" />
+            </label>
+            <label>
+              Bird
+              <div class="filter-autocomplete">
+                <input type="text" id="map-bird" placeholder="Any bird" />
+                <div class="filter-results" id="map-bird-results" hidden></div>
+              </div>
+            </label>
+            <label>
+              Observer
+              <select id="map-observer">
+                <option value="">All</option>
+                <option value="Nicholas">Nicholas</option>
+                <option value="Mark">Mark</option>
+                <option value="Andy">Andy</option>
+              </select>
+            </label>
+            <div class="filter-actions">
+              <button type="button" id="map-apply">Apply</button>
+              <button type="button" id="map-clear">Clear</button>
             </div>
-          </label>
-          <label>
-            Observer
-            <select id="map-observer">
-              <option value="">All</option>
-              <option value="Nicholas">Nicholas</option>
-              <option value="Mark">Mark</option>
-              <option value="Andy">Andy</option>
-            </select>
-          </label>
-          <div class="filter-actions">
-            <button type="button" id="map-apply">Apply</button>
-            <button type="button" id="map-clear">Clear</button>
           </div>
         </div>
         <div id="map" class="map-canvas" aria-label="Bird sightings map"></div>

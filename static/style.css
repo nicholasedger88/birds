@@ -136,12 +136,6 @@ header p {
   gap: 0.35rem;
 }
 
-.location-methods .segment input {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
-}
-
 .location-panel {
   margin-top: 0.4rem;
 }

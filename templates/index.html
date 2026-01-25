@@ -51,34 +51,13 @@
             <div class="field-error" id="bird-error" aria-live="polite"></div>
           </label>
           <label>
-            Location (required)
-            <input
-              type="text"
-              name="location"
-              id="location-field"
-              placeholder="Lakefront trail"
-              required
-            />
-          </label>
-          <label>
             Location method
-            <div class="segmented location-methods" role="radiogroup" aria-label="Location method">
-              <label class="segment">
-                <input type="radio" name="location_method" value="current" />
-                <span>Current location</span>
-              </label>
-              <label class="segment">
-                <input type="radio" name="location_method" value="map" />
-                <span>Pick on map</span>
-              </label>
-              <label class="segment">
-                <input type="radio" name="location_method" value="maps-link" />
-                <span>Google Maps link</span>
-              </label>
-              <label class="segment active">
-                <input type="radio" name="location_method" value="free" checked />
-                <span>Free text</span>
-              </label>
+            <div class="segmented location-methods" role="group" aria-label="Location method">
+              <button type="button" class="segment" data-method="current">Current location</button>
+              <button type="button" class="segment" data-method="map">Pick on map</button>
+              <button type="button" class="segment" data-method="maps-link">Google Maps link</button>
+              <button type="button" class="segment active" data-method="free">Free text</button>
+              <input type="hidden" name="location_method" id="location_method" value="free" />
             </div>
           </label>
           <div class="location-panel" data-method="current" hidden>
@@ -106,6 +85,16 @@
             <p class="helper">This sighting won’t be mapped.</p>
           </div>
           <div class="helper coords-status" id="coords-status" aria-live="polite"></div>
+          <label>
+            Location (required)
+            <input
+              type="text"
+              name="location"
+              id="location"
+              placeholder="Lakefront trail"
+              required
+            />
+          </label>
           <label>
             Location label (optional)
             <input type="text" name="location_label" placeholder="Sefton Park, Liverpool" />
@@ -452,7 +441,7 @@
 
         const geoButton = document.getElementById("geo-button");
         const geoStatus = document.getElementById("geo-status");
-        const locationField = document.getElementById("location-field");
+        const locationField = document.getElementById("location");
         const latField = document.getElementById("lat-field");
         const lngField = document.getElementById("lng-field");
         const locationLabelField = document.querySelector("input[name='location_label']");
@@ -461,7 +450,10 @@
         const mapsStatus = document.getElementById("maps-status");
         const mapPickerButton = document.getElementById("map-picker-button");
         const coordsStatus = document.getElementById("coords-status");
-        const locationMethods = document.querySelectorAll("input[name='location_method']");
+        const locationMethodButtons = document.querySelectorAll(
+          ".location-methods [data-method]"
+        );
+        const locationMethodInput = document.getElementById("location_method");
         const locationPanels = document.querySelectorAll(".location-panel");
 
         const updatePinnedStatus = () => {
@@ -473,6 +465,21 @@
           } else {
             coordsStatus.textContent = "";
           }
+        };
+
+        const setLocation = ({ lat, lng, locationText, labelText }) => {
+          if (!latField || !lngField) {
+            return;
+          }
+          latField.value = Number(lat).toFixed(6);
+          lngField.value = Number(lng).toFixed(6);
+          if (locationField && locationText) {
+            locationField.value = locationText;
+          }
+          if (locationLabelField && (labelText || !locationLabelField.value)) {
+            locationLabelField.value = labelText || locationLabelField.value;
+          }
+          updatePinnedStatus();
         };
 
         if (!locationField || !latField || !lngField) {
@@ -491,10 +498,12 @@
             navigator.geolocation.getCurrentPosition(
               (position) => {
                 const { latitude, longitude } = position.coords;
-                latField.value = latitude.toFixed(6);
-                lngField.value = longitude.toFixed(6);
-                locationField.value = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
-                updatePinnedStatus();
+                setLocation({
+                  lat: latitude,
+                  lng: longitude,
+                  locationText: `Current location (${latitude.toFixed(5)}, ${longitude.toFixed(5)})`,
+                  labelText: `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`,
+                });
                 if (geoStatus) {
                   geoStatus.textContent = "Location captured.";
                 }
@@ -518,10 +527,12 @@
             locationPanels.forEach((panel) => {
               panel.hidden = panel.dataset.method !== method;
             });
-            document.querySelectorAll(".location-methods .segment").forEach((segment) => {
-              const input = segment.querySelector("input");
-              segment.classList.toggle("active", input?.value === method);
+            locationMethodButtons.forEach((button) => {
+              button.classList.toggle("active", button.dataset.method === method);
             });
+            if (locationMethodInput) {
+              locationMethodInput.value = method;
+            }
             if (method === "free") {
               clearCoordinates();
               if (mapsLinkField) {
@@ -536,14 +547,14 @@
             }
           };
 
-          if (!locationMethods.length || !locationPanels.length) {
+          if (!locationMethodButtons.length || !locationPanels.length) {
             console.warn("Location method controls missing; skipping location methods.");
           } else {
-            locationMethods.forEach((input) => {
-              input.addEventListener("change", () => toggleLocationPanels(input.value));
+            locationMethodButtons.forEach((button) => {
+              button.addEventListener("click", () => toggleLocationPanels(button.dataset.method));
             });
             toggleLocationPanels(
-              document.querySelector("input[name='location_method']:checked")?.value || "free"
+              locationMethodInput?.value || "free"
             );
           }
 
@@ -565,12 +576,12 @@
 
           const applyCoordinates = ({ lat, lng, label_guess, google_maps_url }) => {
             if (typeof lat === "number" && typeof lng === "number") {
-              latField.value = lat.toFixed(6);
-              lngField.value = lng.toFixed(6);
-              updatePinnedStatus();
-              if (locationLabelField && !locationLabelField.value && label_guess) {
-                locationLabelField.value = label_guess;
-              }
+              setLocation({
+                lat,
+                lng,
+                locationText: `Pinned location (${lat.toFixed(5)}, ${lng.toFixed(5)})`,
+                labelText: label_guess || `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
+              });
               setMapsStatus("Location saved.", google_maps_url);
             }
           };
@@ -655,12 +666,16 @@
                 return;
               }
               const { lat, lng } = mapPickerMarker.getLatLng();
-              applyCoordinates({
+              setLocation({
                 lat,
                 lng,
-                label_guess: null,
-                google_maps_url: `https://www.google.com/maps?q=${lat},${lng}`,
+                locationText: `Pinned location (${lat.toFixed(5)}, ${lng.toFixed(5)})`,
+                labelText: `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
               });
+              setMapsStatus(
+                "Location saved.",
+                `https://www.google.com/maps?q=${lat},${lng}`
+              );
               closeMapModal();
             });
           }

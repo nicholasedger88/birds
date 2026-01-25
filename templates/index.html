@@ -105,6 +105,7 @@
           <div class="location-panel" data-method="free">
             <p class="helper">This sighting won’t be mapped.</p>
           </div>
+          <div class="helper coords-status" id="coords-status" aria-live="polite"></div>
           <label>
             Location label (optional)
             <input type="text" name="location_label" placeholder="Sefton Park, Liverpool" />
@@ -293,470 +294,516 @@
       crossorigin=""
     ></script>
     <script>
-      const views = document.querySelectorAll(".view");
-      const segments = document.querySelectorAll(".segment");
-      let mapInstance = null;
-      let mapInitialized = false;
-
-      const showView = (target) => {
-        views.forEach((view) => {
-          view.classList.toggle("is-active", view.dataset.view === target);
-        });
-        segments.forEach((segment) => {
-          segment.classList.toggle("active", segment.dataset.view === target);
-        });
-        if (target === "map" && !mapInitialized) {
-          initMap();
-          mapInitialized = true;
-        }
-      };
-
-      segments.forEach((segment) => {
-        segment.addEventListener("click", () => showView(segment.dataset.view));
-      });
-
-      const birdsApi = document.body.dataset.birdsApi || "/api/birds";
-      const birdInput = document.getElementById("bird_name");
-      const birdIdInput = document.getElementById("bird_id");
-      const birdResults = document.getElementById("bird-results");
-      const birdError = document.getElementById("bird-error");
-      let activeIndex = -1;
-
-      const clearResults = () => {
-        birdResults.innerHTML = "";
-        birdResults.hidden = true;
-        activeIndex = -1;
-      };
-
-      const renderResults = (items) => {
-        birdResults.innerHTML = "";
-        if (!items.length) {
-          clearResults();
+      document.addEventListener("DOMContentLoaded", () => {
+        const views = document.querySelectorAll(".view");
+        const segments = document.querySelectorAll(".segment");
+        if (!views.length || !segments.length) {
+          console.warn("View controls are missing; skipping UI init.");
           return;
         }
-        items.forEach((item, index) => {
-          const option = document.createElement("button");
-          option.type = "button";
-          option.className = "result";
-          option.innerHTML = `
+        let mapInstance = null;
+        let mapInitialized = false;
+
+        const showView = (target) => {
+          views.forEach((view) => {
+            view.classList.toggle("is-active", view.dataset.view === target);
+          });
+          segments.forEach((segment) => {
+            segment.classList.toggle("active", segment.dataset.view === target);
+          });
+          if (target === "map" && !mapInitialized) {
+            if (typeof initMap !== "function") {
+              console.warn("Map initializer missing; skipping map view init.");
+              return;
+            }
+            initMap();
+            mapInitialized = true;
+          }
+        };
+
+        segments.forEach((segment) => {
+          segment.addEventListener("click", () => showView(segment.dataset.view));
+        });
+
+        const birdsApi = document.body.dataset.birdsApi || "/api/birds";
+        const birdInput = document.getElementById("bird_name");
+        const birdIdInput = document.getElementById("bird_id");
+        const birdResults = document.getElementById("bird-results");
+        const birdError = document.getElementById("bird-error");
+        let activeIndex = -1;
+
+        if (!birdInput || !birdIdInput || !birdResults) {
+          console.warn("Autocomplete inputs missing; skipping bird suggestions.");
+        } else {
+          const clearResults = () => {
+            birdResults.innerHTML = "";
+            birdResults.hidden = true;
+            activeIndex = -1;
+          };
+
+          const renderResults = (items) => {
+            birdResults.innerHTML = "";
+            if (!items.length) {
+              clearResults();
+              return;
+            }
+            items.forEach((item, index) => {
+              const option = document.createElement("button");
+              option.type = "button";
+              option.className = "result";
+              option.innerHTML = `
             <span class="result-placeholder" aria-hidden="true"></span>
             <span>${item.common_name_uk}</span>
             <span>${item.scientific_name || ""}</span>
           `;
-          if (item.image_url) {
-            const image = document.createElement("img");
-            image.src = item.image_url;
-            image.alt = "";
-            image.loading = "lazy";
-            image.addEventListener("error", () => {
-              console.warn("Image failed", item.image_url);
-              image.replaceWith(
-                Object.assign(document.createElement("span"), {
-                  className: "result-placeholder",
-                })
-              );
+              if (item.image_url) {
+                const image = document.createElement("img");
+                image.src = item.image_url;
+                image.alt = "";
+                image.loading = "lazy";
+                image.addEventListener("error", () => {
+                  console.warn("Image failed", item.image_url);
+                  image.replaceWith(
+                    Object.assign(document.createElement("span"), {
+                      className: "result-placeholder",
+                    })
+                  );
+                });
+                option.replaceChild(image, option.firstElementChild);
+              }
+              option.addEventListener("click", () => {
+                birdInput.value = item.common_name_uk;
+                birdIdInput.value = item.id;
+                clearResults();
+              });
+              if (index === activeIndex) {
+                option.classList.add("active");
+              }
+              birdResults.appendChild(option);
             });
-            option.replaceChild(image, option.firstElementChild);
-          }
-          option.addEventListener("click", () => {
-            birdInput.value = item.common_name_uk;
-            birdIdInput.value = item.id;
-            clearResults();
-          });
-          if (index === activeIndex) {
-            option.classList.add("active");
-          }
-          birdResults.appendChild(option);
-        });
-        birdResults.hidden = false;
-      };
+            birdResults.hidden = false;
+          };
 
-      const fetchResults = async (value) => {
-        try {
-          const response = await fetch(`${birdsApi}?q=${encodeURIComponent(value)}`);
-          if (!response.ok) {
-            throw new Error("Request failed");
-          }
-          const data = await response.json();
-          if (birdError) {
-            birdError.textContent = "";
-          }
-          renderResults(data);
-        } catch (error) {
-          clearResults();
-          if (birdError) {
-            birdError.textContent = "Unable to load suggestions. Try again.";
-          }
-        }
-      };
-
-      birdInput.addEventListener("input", () => {
-        if (birdIdInput.value) {
-          birdIdInput.value = "";
-        }
-        const value = birdInput.value.trim();
-        if (value.length < 2) {
-          clearResults();
-          if (birdError) {
-            birdError.textContent = "";
-          }
-          return;
-        }
-        fetchResults(value);
-      });
-
-      birdInput.addEventListener("keydown", (event) => {
-        const items = Array.from(birdResults.querySelectorAll(".result"));
-        if (!items.length) {
-          return;
-        }
-        if (event.key === "ArrowDown") {
-          event.preventDefault();
-          activeIndex = (activeIndex + 1) % items.length;
-          items.forEach((item, index) =>
-            item.classList.toggle("active", index === activeIndex)
-          );
-        }
-        if (event.key === "ArrowUp") {
-          event.preventDefault();
-          activeIndex = (activeIndex - 1 + items.length) % items.length;
-          items.forEach((item, index) =>
-            item.classList.toggle("active", index === activeIndex)
-          );
-        }
-        if (event.key === "Enter" && activeIndex >= 0) {
-          event.preventDefault();
-          items[activeIndex].click();
-        }
-      });
-
-      document.addEventListener("click", (event) => {
-        if (!birdResults.contains(event.target) && event.target !== birdInput) {
-          clearResults();
-        }
-      });
-
-      const geoButton = document.getElementById("geo-button");
-      const geoStatus = document.getElementById("geo-status");
-      const locationField = document.getElementById("location-field");
-      const latField = document.getElementById("lat-field");
-      const lngField = document.getElementById("lng-field");
-      const locationLabelField = document.querySelector("input[name='location_label']");
-      const mapsLinkField = document.getElementById("maps-link");
-      const mapsExtractButton = document.getElementById("maps-extract");
-      const mapsStatus = document.getElementById("maps-status");
-      const mapPickerButton = document.getElementById("map-picker-button");
-      const locationMethods = document.querySelectorAll("input[name='location_method']");
-      const locationPanels = document.querySelectorAll(".location-panel");
-
-      geoButton.addEventListener("click", () => {
-        if (!navigator.geolocation) {
-          geoStatus.textContent = "Geolocation is not supported in this browser.";
-          return;
-        }
-        geoStatus.textContent = "Finding your location...";
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const { latitude, longitude } = position.coords;
-            latField.value = latitude.toFixed(6);
-            lngField.value = longitude.toFixed(6);
-            locationField.value = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
-            geoStatus.textContent = "Location captured.";
-          },
-          () => {
-            geoStatus.textContent =
-              "Unable to access location. Check browser permissions.";
-          }
-        );
-      });
-
-      const clearCoordinates = () => {
-        latField.value = "";
-        lngField.value = "";
-      };
-
-      const toggleLocationPanels = (method) => {
-        locationPanels.forEach((panel) => {
-          panel.hidden = panel.dataset.method !== method;
-        });
-        document.querySelectorAll(".location-methods .segment").forEach((segment) => {
-          const input = segment.querySelector("input");
-          segment.classList.toggle("active", input?.value === method);
-        });
-        if (method === "free") {
-          clearCoordinates();
-          if (mapsLinkField) {
-            mapsLinkField.value = "";
-          }
-          if (mapsStatus) {
-            mapsStatus.textContent = "";
-          }
-          if (geoStatus) {
-            geoStatus.textContent = "Location uses your browser's GPS when available.";
-          }
-        }
-      };
-
-      locationMethods.forEach((input) => {
-        input.addEventListener("change", () => toggleLocationPanels(input.value));
-      });
-
-      toggleLocationPanels(
-        document.querySelector("input[name='location_method']:checked")?.value || "free"
-      );
-
-      const setMapsStatus = (message, link) => {
-        if (!mapsStatus) {
-          return;
-        }
-        mapsStatus.textContent = message || "";
-        if (link) {
-          const anchor = document.createElement("a");
-          anchor.href = link;
-          anchor.target = "_blank";
-          anchor.rel = "noreferrer";
-          anchor.textContent = "Open in Maps";
-          mapsStatus.appendChild(document.createTextNode(" "));
-          mapsStatus.appendChild(anchor);
-        }
-      };
-
-      const applyCoordinates = ({ lat, lng, label_guess, google_maps_url }) => {
-        if (typeof lat === "number" && typeof lng === "number") {
-          latField.value = lat.toFixed(6);
-          lngField.value = lng.toFixed(6);
-          if (locationLabelField && !locationLabelField.value && label_guess) {
-            locationLabelField.value = label_guess;
-          }
-          setMapsStatus("Location saved.", google_maps_url);
-        }
-      };
-
-      if (mapsExtractButton && mapsLinkField) {
-        mapsExtractButton.addEventListener("click", async () => {
-          const linkValue = mapsLinkField.value.trim();
-          if (!linkValue) {
-            setMapsStatus("Paste a Google Maps link to extract coordinates.");
-            return;
-          }
-          setMapsStatus("Extracting coordinates...");
-          const response = await fetch(
-            `/api/parse-maps-link?url=${encodeURIComponent(linkValue)}`
-          );
-          if (!response.ok) {
-            const payload = await response.json().catch(() => ({}));
-            setMapsStatus(payload.error || "Unable to parse that link.");
-            return;
-          }
-          const payload = await response.json();
-          applyCoordinates(payload);
-        });
-      }
-
-      let mapPicker = null;
-      let mapPickerMarker = null;
-
-      const openMapModal = () => {
-        const modal = document.getElementById("map-modal");
-        if (!modal) {
-          return;
-        }
-        modal.hidden = false;
-        if (!mapPicker) {
-          const centerLat = latField.value ? parseFloat(latField.value) : 54.5;
-          const centerLng = lngField.value ? parseFloat(lngField.value) : -3.0;
-          mapPicker = L.map("map-picker").setView([centerLat, centerLng], 6);
-          L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-            attribution: "&copy; OpenStreetMap contributors",
-          }).addTo(mapPicker);
-          mapPicker.on("click", (event) => {
-            if (mapPickerMarker) {
-              mapPickerMarker.setLatLng(event.latlng);
-            } else {
-              mapPickerMarker = L.marker(event.latlng).addTo(mapPicker);
+          const fetchResults = async (value) => {
+            try {
+              const response = await fetch(`${birdsApi}?q=${encodeURIComponent(value)}`);
+              if (!response.ok) {
+                throw new Error("Request failed");
+              }
+              const data = await response.json();
+              if (birdError) {
+                birdError.textContent = "";
+              }
+              renderResults(data);
+            } catch (error) {
+              clearResults();
+              if (birdError) {
+                birdError.textContent = "Unable to load suggestions. Try again.";
+              }
             }
-            const status = document.getElementById("map-picker-status");
-            if (status) {
-              status.textContent = `Selected ${event.latlng.lat.toFixed(6)}, ${event.latlng.lng.toFixed(6)}`;
+          };
+
+          birdInput.addEventListener("input", () => {
+            if (birdIdInput.value) {
+              birdIdInput.value = "";
+            }
+            const value = birdInput.value.trim();
+            if (value.length < 2) {
+              clearResults();
+              if (birdError) {
+                birdError.textContent = "";
+              }
+              return;
+            }
+            fetchResults(value);
+          });
+
+          birdInput.addEventListener("keydown", (event) => {
+            const items = Array.from(birdResults.querySelectorAll(".result"));
+            if (!items.length) {
+              return;
+            }
+            if (event.key === "ArrowDown") {
+              event.preventDefault();
+              activeIndex = (activeIndex + 1) % items.length;
+              items.forEach((item, index) =>
+                item.classList.toggle("active", index === activeIndex)
+              );
+            }
+            if (event.key === "ArrowUp") {
+              event.preventDefault();
+              activeIndex = (activeIndex - 1 + items.length) % items.length;
+              items.forEach((item, index) =>
+                item.classList.toggle("active", index === activeIndex)
+              );
+            }
+            if (event.key === "Enter" && activeIndex >= 0) {
+              event.preventDefault();
+              items[activeIndex].click();
             }
           });
+
+          document.addEventListener("click", (event) => {
+            if (!birdResults.contains(event.target) && event.target !== birdInput) {
+              clearResults();
+            }
+          });
+        }
+
+        const geoButton = document.getElementById("geo-button");
+        const geoStatus = document.getElementById("geo-status");
+        const locationField = document.getElementById("location-field");
+        const latField = document.getElementById("lat-field");
+        const lngField = document.getElementById("lng-field");
+        const locationLabelField = document.querySelector("input[name='location_label']");
+        const mapsLinkField = document.getElementById("maps-link");
+        const mapsExtractButton = document.getElementById("maps-extract");
+        const mapsStatus = document.getElementById("maps-status");
+        const mapPickerButton = document.getElementById("map-picker-button");
+        const coordsStatus = document.getElementById("coords-status");
+        const locationMethods = document.querySelectorAll("input[name='location_method']");
+        const locationPanels = document.querySelectorAll(".location-panel");
+
+        const updatePinnedStatus = () => {
+          if (!coordsStatus || !latField || !lngField) {
+            return;
+          }
+          if (latField.value && lngField.value) {
+            coordsStatus.textContent = `Pinned: ${latField.value}, ${lngField.value}`;
+          } else {
+            coordsStatus.textContent = "";
+          }
+        };
+
+        if (!locationField || !latField || !lngField) {
+          console.warn("Location fields missing; skipping location init.");
         } else {
-          mapPicker.invalidateSize();
-        }
-      };
-
-      const closeMapModal = () => {
-        const modal = document.getElementById("map-modal");
-        if (modal) {
-          modal.hidden = true;
-        }
-      };
-
-      if (mapPickerButton) {
-        mapPickerButton.addEventListener("click", openMapModal);
-      }
-
-      document.querySelectorAll("[data-close='true']").forEach((element) => {
-        element.addEventListener("click", closeMapModal);
-      });
-
-      const mapPickerConfirm = document.getElementById("map-picker-confirm");
-      if (mapPickerConfirm) {
-        mapPickerConfirm.addEventListener("click", () => {
-          if (!mapPickerMarker) {
-            const status = document.getElementById("map-picker-status");
-            if (status) {
-              status.textContent = "Choose a point on the map first.";
+          geoButton?.addEventListener("click", () => {
+            if (!navigator.geolocation) {
+              if (geoStatus) {
+                geoStatus.textContent = "Geolocation is not supported in this browser.";
+              }
+              return;
             }
-            return;
-          }
-          const { lat, lng } = mapPickerMarker.getLatLng();
-          applyCoordinates({
-            lat,
-            lng,
-            label_guess: null,
-            google_maps_url: `https://www.google.com/maps?q=${lat},${lng}`,
+            if (geoStatus) {
+              geoStatus.textContent = "Finding your location...";
+            }
+            navigator.geolocation.getCurrentPosition(
+              (position) => {
+                const { latitude, longitude } = position.coords;
+                latField.value = latitude.toFixed(6);
+                lngField.value = longitude.toFixed(6);
+                locationField.value = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+                updatePinnedStatus();
+                if (geoStatus) {
+                  geoStatus.textContent = "Location captured.";
+                }
+              },
+              () => {
+                if (geoStatus) {
+                  geoStatus.textContent =
+                    "Unable to access location. Check browser permissions.";
+                }
+              }
+            );
           });
-          closeMapModal();
-        });
-      }
 
-      const triggerFlap = () => {
-        const bird = document.querySelector(".corner-bird");
-        if (!bird) {
-          return;
-        }
-        bird.classList.remove("flap-once");
-        void bird.offsetWidth;
-        bird.classList.add("flap-once");
-        bird.addEventListener(
-          "animationend",
-          () => bird.classList.remove("flap-once"),
-          { once: true }
-        );
-      };
+          const clearCoordinates = () => {
+            latField.value = "";
+            lngField.value = "";
+            updatePinnedStatus();
+          };
 
-      const scheduleBirdBurst = () => {
-        const bird = document.querySelector(".corner-bird");
-        if (!bird) {
-          return;
+          const toggleLocationPanels = (method) => {
+            locationPanels.forEach((panel) => {
+              panel.hidden = panel.dataset.method !== method;
+            });
+            document.querySelectorAll(".location-methods .segment").forEach((segment) => {
+              const input = segment.querySelector("input");
+              segment.classList.toggle("active", input?.value === method);
+            });
+            if (method === "free") {
+              clearCoordinates();
+              if (mapsLinkField) {
+                mapsLinkField.value = "";
+              }
+              if (mapsStatus) {
+                mapsStatus.textContent = "";
+              }
+              if (geoStatus) {
+                geoStatus.textContent = "Location uses your browser's GPS when available.";
+              }
+            }
+          };
+
+          if (!locationMethods.length || !locationPanels.length) {
+            console.warn("Location method controls missing; skipping location methods.");
+          } else {
+            locationMethods.forEach((input) => {
+              input.addEventListener("change", () => toggleLocationPanels(input.value));
+            });
+            toggleLocationPanels(
+              document.querySelector("input[name='location_method']:checked")?.value || "free"
+            );
+          }
+
+          const setMapsStatus = (message, link) => {
+            if (!mapsStatus) {
+              return;
+            }
+            mapsStatus.textContent = message || "";
+            if (link) {
+              const anchor = document.createElement("a");
+              anchor.href = link;
+              anchor.target = "_blank";
+              anchor.rel = "noreferrer";
+              anchor.textContent = "Open in Maps";
+              mapsStatus.appendChild(document.createTextNode(" "));
+              mapsStatus.appendChild(anchor);
+            }
+          };
+
+          const applyCoordinates = ({ lat, lng, label_guess, google_maps_url }) => {
+            if (typeof lat === "number" && typeof lng === "number") {
+              latField.value = lat.toFixed(6);
+              lngField.value = lng.toFixed(6);
+              updatePinnedStatus();
+              if (locationLabelField && !locationLabelField.value && label_guess) {
+                locationLabelField.value = label_guess;
+              }
+              setMapsStatus("Location saved.", google_maps_url);
+            }
+          };
+
+          if (mapsExtractButton && mapsLinkField) {
+            mapsExtractButton.addEventListener("click", async () => {
+              const linkValue = mapsLinkField.value.trim();
+              if (!linkValue) {
+                setMapsStatus("Paste a Google Maps link to extract coordinates.");
+                return;
+              }
+              setMapsStatus("Extracting coordinates...");
+              const response = await fetch(
+                `/api/parse-maps-link?url=${encodeURIComponent(linkValue)}`
+              );
+              if (!response.ok) {
+                const payload = await response.json().catch(() => ({}));
+                setMapsStatus(payload.error || "Unable to parse that link.");
+                return;
+              }
+              const payload = await response.json();
+              applyCoordinates(payload);
+            });
+          }
+
+          let mapPicker = null;
+          let mapPickerMarker = null;
+
+          const openMapModal = () => {
+            const modal = document.getElementById("map-modal");
+            if (!modal) {
+              console.warn("Map modal missing.");
+              return;
+            }
+            modal.hidden = false;
+            if (!mapPicker) {
+              const centerLat = latField.value ? parseFloat(latField.value) : 54.5;
+              const centerLng = lngField.value ? parseFloat(lngField.value) : -3.0;
+              mapPicker = L.map("map-picker").setView([centerLat, centerLng], 6);
+              L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+                attribution: "&copy; OpenStreetMap contributors",
+              }).addTo(mapPicker);
+              mapPicker.on("click", (event) => {
+                if (mapPickerMarker) {
+                  mapPickerMarker.setLatLng(event.latlng);
+                } else {
+                  mapPickerMarker = L.marker(event.latlng).addTo(mapPicker);
+                }
+                const status = document.getElementById("map-picker-status");
+                if (status) {
+                  status.textContent = `Selected ${event.latlng.lat.toFixed(6)}, ${event.latlng.lng.toFixed(6)}`;
+                }
+              });
+            } else {
+              mapPicker.invalidateSize();
+            }
+          };
+
+          const closeMapModal = () => {
+            const modal = document.getElementById("map-modal");
+            if (modal) {
+              modal.hidden = true;
+            }
+          };
+
+          if (mapPickerButton) {
+            mapPickerButton.addEventListener("click", openMapModal);
+          }
+
+          document.querySelectorAll("[data-close='true']").forEach((element) => {
+            element.addEventListener("click", closeMapModal);
+          });
+
+          const mapPickerConfirm = document.getElementById("map-picker-confirm");
+          if (mapPickerConfirm) {
+            mapPickerConfirm.addEventListener("click", () => {
+              if (!mapPickerMarker) {
+                const status = document.getElementById("map-picker-status");
+                if (status) {
+                  status.textContent = "Choose a point on the map first.";
+                }
+                return;
+              }
+              const { lat, lng } = mapPickerMarker.getLatLng();
+              applyCoordinates({
+                lat,
+                lng,
+                label_guess: null,
+                google_maps_url: `https://www.google.com/maps?q=${lat},${lng}`,
+              });
+              closeMapModal();
+            });
+          }
+
+          updatePinnedStatus();
         }
-        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-          return;
-        }
-        const isSmallScreen = window.matchMedia("(max-width: 640px)").matches;
-        const minDelay = isSmallScreen ? 9000 : 6000;
-        const maxDelay = isSmallScreen ? 16000 : 14000;
-        const delay =
-          Math.floor(Math.random() * (maxDelay - minDelay + 1)) + minDelay;
-        setTimeout(() => {
-          if (bird.classList.contains("is-bursting")) {
-            scheduleBirdBurst();
+
+        const triggerFlap = () => {
+          const bird = document.querySelector(".corner-bird");
+          if (!bird) {
             return;
           }
-          bird.classList.add("is-bursting");
+          bird.classList.remove("flap-once");
+          void bird.offsetWidth;
+          bird.classList.add("flap-once");
           bird.addEventListener(
             "animationend",
-            () => bird.classList.remove("is-bursting"),
+            () => bird.classList.remove("flap-once"),
             { once: true }
           );
-          scheduleBirdBurst();
-        }, delay);
-      };
+        };
 
-      const sightingForm = document.querySelector("form[action='{{ url_for('create_sighting') }}']");
-      if (sightingForm) {
-        sightingForm.addEventListener("submit", () => {
-          setTimeout(triggerFlap, 300);
-        });
-      }
-      scheduleBirdBurst();
+        const scheduleBirdBurst = () => {
+          const bird = document.querySelector(".corner-bird");
+          if (!bird) {
+            return;
+          }
+          if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+            return;
+          }
+          const isSmallScreen = window.matchMedia("(max-width: 640px)").matches;
+          const minDelay = isSmallScreen ? 9000 : 6000;
+          const maxDelay = isSmallScreen ? 16000 : 14000;
+          const delay =
+            Math.floor(Math.random() * (maxDelay - minDelay + 1)) + minDelay;
+          setTimeout(() => {
+            if (bird.classList.contains("is-bursting")) {
+              scheduleBirdBurst();
+              return;
+            }
+            bird.classList.add("is-bursting");
+            bird.addEventListener(
+              "animationend",
+              () => bird.classList.remove("is-bursting"),
+              { once: true }
+            );
+            scheduleBirdBurst();
+          }, delay);
+        };
 
-      const buildParams = (fromInput, toInput, extra = {}) => {
-        const params = new URLSearchParams(extra);
-        if (fromInput?.value) {
-          params.set("from", fromInput.value);
+        const sightingForm = document.querySelector("form[action='{{ url_for('create_sighting') }}']");
+        if (sightingForm) {
+          sightingForm.addEventListener("submit", () => {
+            setTimeout(triggerFlap, 300);
+          });
         }
-        if (toInput?.value) {
-          params.set("to", toInput.value);
-        }
-        return params.toString();
-      };
+        scheduleBirdBurst();
 
-      const syncFiltersFromUrl = () => {
-        const params = new URLSearchParams(window.location.search);
-        const from = params.get("from") || "";
-        const to = params.get("to") || "";
-        const observer = params.get("observer") || "";
-        const filterFrom = document.getElementById("filter-from");
-        const filterTo = document.getElementById("filter-to");
-        const filterBird = document.getElementById("filter-bird");
-        const filterObserver = document.getElementById("filter-observer");
-        const mapFrom = document.getElementById("map-from");
-        const mapTo = document.getElementById("map-to");
-        const mapBird = document.getElementById("map-bird");
-        const mapObserver = document.getElementById("map-observer");
-        if (filterFrom) {
-          filterFrom.value = from;
-        }
-        if (filterTo) {
-          filterTo.value = to;
-        }
-        if (filterBird) {
-          filterBird.value = params.get("bird_name") || "";
-          filterBird.dataset.birdId = params.get("bird_id") || "";
-        }
-        if (filterObserver) {
-          filterObserver.value = observer;
-        }
-        if (mapFrom) {
-          mapFrom.value = from;
-        }
-        if (mapTo) {
-          mapTo.value = to;
-        }
-        if (mapBird) {
-          mapBird.value = params.get("bird_name") || "";
-          mapBird.dataset.birdId = params.get("bird_id") || "";
-        }
-        if (mapObserver) {
-          mapObserver.value = observer;
-        }
-      };
+        const buildParams = (fromInput, toInput, extra = {}) => {
+          const params = new URLSearchParams(extra);
+          if (fromInput?.value) {
+            params.set("from", fromInput.value);
+          }
+          if (toInput?.value) {
+            params.set("to", toInput.value);
+          }
+          return params.toString();
+        };
 
-      const updateUrlFilters = (
-        fromValue,
-        toValue,
-        birdIdValue,
-        birdNameValue,
-        observerValue
-      ) => {
-        const params = new URLSearchParams(window.location.search);
-        if (fromValue) {
-          params.set("from", fromValue);
-        } else {
-          params.delete("from");
-        }
-        if (toValue) {
-          params.set("to", toValue);
-        } else {
-          params.delete("to");
-        }
-        if (birdIdValue) {
-          params.set("bird_id", birdIdValue);
-          params.set("bird_name", birdNameValue || "");
-        } else {
-          params.delete("bird_id");
-          params.delete("bird_name");
-        }
-        if (observerValue) {
-          params.set("observer", observerValue);
-        } else {
-          params.delete("observer");
-        }
-        const newUrl = `${window.location.pathname}?${params.toString()}`;
-        window.history.replaceState({}, "", newUrl);
-      };
+        const syncFiltersFromUrl = () => {
+          const params = new URLSearchParams(window.location.search);
+          const from = params.get("from") || "";
+          const to = params.get("to") || "";
+          const observer = params.get("observer") || "";
+          const filterFrom = document.getElementById("filter-from");
+          const filterTo = document.getElementById("filter-to");
+          const filterBird = document.getElementById("filter-bird");
+          const filterObserver = document.getElementById("filter-observer");
+          const mapFrom = document.getElementById("map-from");
+          const mapTo = document.getElementById("map-to");
+          const mapBird = document.getElementById("map-bird");
+          const mapObserver = document.getElementById("map-observer");
+          if (filterFrom) {
+            filterFrom.value = from;
+          }
+          if (filterTo) {
+            filterTo.value = to;
+          }
+          if (filterBird) {
+            filterBird.value = params.get("bird_name") || "";
+            filterBird.dataset.birdId = params.get("bird_id") || "";
+          }
+          if (filterObserver) {
+            filterObserver.value = observer;
+          }
+          if (mapFrom) {
+            mapFrom.value = from;
+          }
+          if (mapTo) {
+            mapTo.value = to;
+          }
+          if (mapBird) {
+            mapBird.value = params.get("bird_name") || "";
+            mapBird.dataset.birdId = params.get("bird_id") || "";
+          }
+          if (mapObserver) {
+            mapObserver.value = observer;
+          }
+        };
+
+        const updateUrlFilters = (
+          fromValue,
+          toValue,
+          birdIdValue,
+          birdNameValue,
+          observerValue
+        ) => {
+          const params = new URLSearchParams(window.location.search);
+          if (fromValue) {
+            params.set("from", fromValue);
+          } else {
+            params.delete("from");
+          }
+          if (toValue) {
+            params.set("to", toValue);
+          } else {
+            params.delete("to");
+          }
+          if (birdIdValue) {
+            params.set("bird_id", birdIdValue);
+            params.set("bird_name", birdNameValue || "");
+          } else {
+            params.delete("bird_id");
+            params.delete("bird_name");
+          }
+          if (observerValue) {
+            params.set("observer", observerValue);
+          } else {
+            params.delete("observer");
+          }
+          const newUrl = `${window.location.pathname}?${params.toString()}`;
+          window.history.replaceState({}, "", newUrl);
+        };
 
       const renderRecentList = (items) => {
         const list = document.getElementById("recent-list");
@@ -1059,6 +1106,7 @@
 
       syncFiltersFromUrl();
       fetchRecent();
+      });
     </script>
   </body>
 </html>

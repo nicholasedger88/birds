@@ -113,6 +113,16 @@ def init_db() -> None:
 
 init_db()
 
+
+def warn_if_birds_empty() -> None:
+    with get_connection() as connection:
+        birds_count = connection.execute("SELECT COUNT(*) FROM birds").fetchone()[0]
+    if birds_count == 0:
+        print("Birds table is empty. Run: flask seed-birds")
+
+
+warn_if_birds_empty()
+
 BIRD_PROFILES = {
     "Northern Cardinal": {
         "latin_name": "Cardinalis cardinalis",

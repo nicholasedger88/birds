@@ -125,17 +125,6 @@ header p {
   color: #fdfcf9;
 }
 
-.location-methods {
-  gap: 0.35rem;
-}
-
-.location-methods .segment {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-}
-
 .location-panel {
   margin-top: 0.4rem;
 }
